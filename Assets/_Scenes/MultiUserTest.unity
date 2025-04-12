@@ -497,7 +497,7 @@ Transform:
   m_GameObject: {fileID: 526572097}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.30964035, y: 1.2576034, z: -0.547}
+  m_LocalPosition: {x: 0.30964106, y: 1.2576027, z: -0.549}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -612,7 +612,7 @@ MonoBehaviour:
       m_Length: 1
       m_Item0:
         transform: {fileID: 446477385}
-        weight: 0
+        weight: 1
       m_Item1:
         transform: {fileID: 0}
         weight: 0
@@ -673,7 +673,7 @@ Transform:
   m_GameObject: {fileID: 833468968}
   serializedVersion: 2
   m_LocalRotation: {x: 0.35355338, y: -0.35355338, z: 0.1464466, w: 0.8535535}
-  m_LocalPosition: {x: -0.4514915, y: 1.0694942, z: 0.0324975}
+  m_LocalPosition: {x: 0.4514903, y: 1.069494, z: 0.032497037}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -698,7 +698,7 @@ MonoBehaviour:
       m_Length: 1
       m_Item0:
         transform: {fileID: 74626544330717540}
-        weight: 0
+        weight: 1
       m_Item1:
         transform: {fileID: 0}
         weight: 0
@@ -861,7 +861,8 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 4054858579714458024, guid: dce153b6f052d4f5db7cc84ffbf5b8cb, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
@@ -1140,7 +1141,7 @@ MonoBehaviour:
       m_Length: 1
       m_Item0:
         transform: {fileID: 6400670469982986408}
-        weight: 0
+        weight: 1
       m_Item1:
         transform: {fileID: 0}
         weight: 0
@@ -2750,7 +2751,6 @@ GameObject:
   - component: {fileID: 6400670469982986408}
   - component: {fileID: 5755861869017682052}
   - component: {fileID: 3108038684754603349}
-  - component: {fileID: 7022621470499694609}
   - component: {fileID: 7503396954713452316}
   m_Layer: 0
   m_Name: Left Controller
@@ -3581,6 +3581,7 @@ GameObject:
   - component: {fileID: 2858866364559396776}
   - component: {fileID: 5529923212840814866}
   - component: {fileID: 8229518302667987942}
+  - component: {fileID: 8229518302667987943}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -4717,7 +4718,6 @@ GameObject:
   - component: {fileID: 74626544330717540}
   - component: {fileID: 5402690066662465738}
   - component: {fileID: 3997977469844460559}
-  - component: {fileID: 6097077203490270094}
   - component: {fileID: 696873968106491958}
   m_Layer: 0
   m_Name: Right Controller
@@ -8016,18 +8016,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &6097077203490270094
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2791278895353920188}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 0}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &6128983421301968954
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9006,18 +8994,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 864836933690443724}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &7022621470499694609
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 817476097080749348}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 0}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!4 &7057079130896851130
 Transform:
   m_ObjectHideFlags: 0
@@ -10464,6 +10440,29 @@ MonoBehaviour:
   rightToeRotation: {fileID: 2114873369069906368}
   rpmAnimator: {fileID: 7151560157204195034}
   parameterName: hmdRotation
+--- !u!136 &8229518302667987943
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1627352682945015286}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.2
+  m_Height: 1.736
+  m_Direction: 1
+  m_Center: {x: 0, y: 0.85, z: 0}
 --- !u!4 &8231861265749900915
 Transform:
   m_ObjectHideFlags: 0

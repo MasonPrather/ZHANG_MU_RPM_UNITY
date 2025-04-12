@@ -2,6 +2,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using XRMultiplayer;
+using UnityEngine.InputSystem;
 
 public class M_GameMenu : MonoBehaviour
 {
@@ -13,6 +14,7 @@ public class M_GameMenu : MonoBehaviour
 
     [Header("Other Variables")]
     [SerializeField] private string roomName;
+    [SerializeField] private InputActionProperty menuButtonAction;
     private GameObject lobbyMenu;
     private int playerMaxCount;
     private bool host;
@@ -22,6 +24,27 @@ public class M_GameMenu : MonoBehaviour
         mainPanel.SetActive(true);
         loadingPanel.SetActive(false);
         playerMaxCount = XRINetworkGameManager.maxPlayers / 2;
+        menuButtonAction.action.Enable();
+        menuButtonAction.action.performed += OnMenuButtonPressed;
+    }
+
+    private void OnDestroy()
+    {
+        menuButtonAction.action.performed -= OnMenuButtonPressed;
+    }
+
+    private void OnMenuButtonPressed(InputAction.CallbackContext context)
+    {
+        if (mainPanel != null)
+        {
+            bool isActive = mainPanel.activeSelf;
+            mainPanel.SetActive(!isActive);
+
+            if (!isActive)
+            {
+                loadingPanel.SetActive(false);
+            }
+        }
     }
 
     public void HostLobby()
