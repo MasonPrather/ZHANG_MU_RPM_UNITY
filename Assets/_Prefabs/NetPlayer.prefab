@@ -1682,7 +1682,7 @@ Animator:
   m_GameObject: {fileID: 3223905476759211979}
   m_Enabled: 1
   m_Avatar: {fileID: 9000000, guid: 8cc7a03a536145341913ac04cbf9fcf2, type: 3}
-  m_Controller: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 4a7f89aaade1c40829288a169306b0f1, type: 2}
   m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 0
@@ -2135,6 +2135,7 @@ GameObject:
   - component: {fileID: 9060725115692265088}
   - component: {fileID: 574888582628080730}
   - component: {fileID: 1165559338619556057}
+  - component: {fileID: 1234912927224649922}
   m_Layer: 6
   m_Name: NetPlayer
   m_TagString: Player
@@ -2228,7 +2229,31 @@ MonoBehaviour:
   hips: {fileID: 8006948864605521232}
   leftHand: {fileID: 3202895449519268483}
   rightHand: {fileID: 5085855071280945186}
-  meshToDisable: []
+  animator: {fileID: 7278349575812007012}
+  meshToDisable:
+  - {fileID: 470060735711878452}
+  - {fileID: 2223532439772913495}
+  - {fileID: 1795532192295434513}
+  - {fileID: 810857425751962839}
+  - {fileID: 5029222371618036298}
+  - {fileID: 8136429461563706290}
+  - {fileID: 6022230957330262273}
+  - {fileID: 8107068506586186327}
+  - {fileID: 8277547437652746499}
+--- !u!114 &1234912927224649922
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4176195355806661356}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ccc8ce9f66ea94df6a68cf46e2ca60ea, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  avatarAnimator: {fileID: 7278349575812007012}
+  trackedTransform: {fileID: 4635588141586990506}
 --- !u!1 &4188667175705736600
 GameObject:
   m_ObjectHideFlags: 0

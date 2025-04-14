@@ -12,18 +12,19 @@ public class M_GameMenu : MonoBehaviour
     [SerializeField] private GameObject lobbyMenuPrefab;
     [SerializeField] private TMP_Text statusText;
 
-    [Header("Other Variables")]
+    [Header("Settings")]
     [SerializeField] private string roomName;
     [SerializeField] private InputActionProperty menuButtonAction;
+
     private GameObject lobbyMenu;
-    private int playerMaxCount;
     private bool host;
+    private bool connectionHandled;
 
     private void Start()
     {
         mainPanel.SetActive(true);
         loadingPanel.SetActive(false);
-        playerMaxCount = XRINetworkGameManager.maxPlayers / 2;
+
         menuButtonAction.action.Enable();
         menuButtonAction.action.performed += OnMenuButtonPressed;
     }
@@ -35,70 +36,57 @@ public class M_GameMenu : MonoBehaviour
 
     private void OnMenuButtonPressed(InputAction.CallbackContext context)
     {
-        if (mainPanel != null)
-        {
-            bool isActive = mainPanel.activeSelf;
-            mainPanel.SetActive(!isActive);
+        if (mainPanel == null) return;
 
-            if (!isActive)
-            {
-                loadingPanel.SetActive(false);
-            }
+        bool isActive = mainPanel.activeSelf;
+        mainPanel.SetActive(!isActive);
+
+        if (!isActive)
+        {
+            loadingPanel.SetActive(false);
         }
     }
 
     public void HostLobby()
     {
+        if (XRINetworkGameManager.Instance == null) return;
+
         Debug.Log("[M_GameMenu] Hosting lobby...");
         host = true;
+        connectionHandled = false;
 
-        Debug.Log($"[M_GameMenu] Connected.Value before subscribing: {XRINetworkGameManager.Connected.Value}");
+        ShowLoading("Hosting lobby...");
 
         if (XRINetworkGameManager.Connected.Value)
         {
-            Debug.Log("[M_GameMenu] Already connected, calling OnConnected(true)...");
-            OnConnected(true);
+            OnConnected(true); // Already connected
         }
         else
         {
-            Debug.Log("[M_GameMenu] Not connected yet, subscribing to changes...");
             XRINetworkGameManager.Connected.Subscribe(OnConnected);
         }
 
-        // Update UI
-        mainPanel.SetActive(false);
-        loadingPanel.SetActive(true);
-        statusText.text = "Hosting lobby...";
-
         try
         {
-            XRINetworkGameManager.Instance.CreateNewLobby(roomName, false, playerMaxCount);
-
-            // Add a delay to check if it updates after some time
-            Invoke(nameof(CheckConnectionStatus), 3f);
+            XRINetworkGameManager.Instance.CreateNewLobby(roomName, false, XRINetworkGameManager.maxPlayers / 2);
         }
         catch (System.Exception ex)
         {
             Debug.LogError("[M_GameMenu] Failed to create lobby: " + ex.Message);
-        }
-    }
-
-    // Manually check after 3 seconds if the value changed
-    private void CheckConnectionStatus()
-    {
-        Debug.Log($"[M_GameMenu] Checking connection status after delay: {XRINetworkGameManager.Connected.Value}");
-
-        if (XRINetworkGameManager.Connected.Value)
-        {
-            OnConnected(true);
+            ShowLoading("Failed to host lobby.");
         }
     }
 
     public void QuickJoinLobby()
     {
-        Debug.Log("[M_GameMenu] Quick joining lobby...");
+        if (XRINetworkGameManager.Instance == null) return;
 
-        // **Check current connection state**
+        Debug.Log("[M_GameMenu] Quick joining lobby...");
+        host = false;
+        connectionHandled = false;
+
+        ShowLoading("Attempting to join lobby...");
+
         if (XRINetworkGameManager.Connected.Value)
         {
             OnConnected(true);
@@ -107,11 +95,6 @@ public class M_GameMenu : MonoBehaviour
         {
             XRINetworkGameManager.Connected.Subscribe(OnConnected);
         }
-
-        // Update UI
-        mainPanel.SetActive(false);
-        loadingPanel.SetActive(true);
-        statusText.text = "Attempting to join lobby...";
 
         try
         {
@@ -120,30 +103,51 @@ public class M_GameMenu : MonoBehaviour
         catch (System.Exception ex)
         {
             Debug.LogError("[M_GameMenu] Quick join failed: " + ex.Message);
+            ShowLoading("Failed to join lobby.");
         }
     }
 
     private void OnConnected(bool connected)
     {
+        if (connectionHandled) return;
+        connectionHandled = true;
+
         Debug.Log("[M_GameMenu] OnConnected triggered!");
+        XRINetworkGameManager.Connected.Unsubscribe(OnConnected);
 
         if (connected)
         {
             Debug.Log("[M_GameMenu] Connection successful!");
-            loadingPanel.SetActive(false);
 
-            if (host)
+            // Show success message
+            ShowLoading(host ? "Lobby hosted!" : "Joined lobby!");
+
+            // Spawn lobby UI if host
+            if (host && lobbyMenu == null)
             {
                 lobbyMenu = Instantiate(lobbyMenuPrefab, transform.parent);
                 lobbyMenu.SetActive(true);
             }
 
-            // Unsubscribe after successful connection
-            XRINetworkGameManager.Connected.Unsubscribe(OnConnected);
+            // Delay hiding loading screen for UX clarity
+            Invoke(nameof(HideLoading), 1.25f);
         }
         else
         {
             Debug.LogWarning("[M_GameMenu] Connection failed.");
+            ShowLoading("Connection failed.");
         }
+    }
+
+    private void ShowLoading(string message)
+    {
+        mainPanel.SetActive(false);
+        loadingPanel.SetActive(true);
+        statusText.text = message;
+    }
+
+    private void HideLoading()
+    {
+        loadingPanel.SetActive(false);
     }
 }

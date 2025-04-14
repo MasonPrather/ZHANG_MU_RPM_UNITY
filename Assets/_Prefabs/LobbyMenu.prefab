@@ -140,11 +140,10 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Arctic Mission
+  m_text: KSU Social VR
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: fbb7c6a04be6d8341934b839f24b42e1, type: 2}
-  m_sharedMaterial: {fileID: 4687939059374929122, guid: fbb7c6a04be6d8341934b839f24b42e1,
-    type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -354,7 +353,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 6134205169966153694}
-  - component: {fileID: 6829303385803964725}
   - component: {fileID: 6580809270907626257}
   - component: {fileID: 2692627801384182095}
   m_Layer: 0
@@ -386,21 +384,6 @@ RectTransform:
   m_AnchoredPosition: {x: -3.676, y: 2.955}
   m_SizeDelta: {x: 420, y: 250}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &6829303385803964725
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4702617668950953134}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c957e0303d5d94b4c83ea19b0d796e3b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_HideOnStart: 0
-  m_DistanceFromFace: 0.7
-  m_YOffset: 0
 --- !u!114 &6580809270907626257
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -435,7 +418,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lobbyMenuPanel: {fileID: 4702617668950953134}
-  lobbyStatusText: {fileID: 0}
+  lobbyStatusText: {fileID: 1968542418126949080}
   hostNameText: {fileID: 0}
   playerNameText: {fileID: 0}
   startGameButton: {fileID: 470032566473679287}
@@ -454,7 +437,6 @@ GameObject:
   - component: {fileID: 7075445903380930781}
   - component: {fileID: 8867088802573874758}
   - component: {fileID: 6295315473149031343}
-  - component: {fileID: 1461363473850661598}
   m_Layer: 0
   m_Name: Start Game Button
   m_TagString: Untagged
@@ -695,29 +677,6 @@ MonoBehaviour:
     callback:
       m_PersistentCalls:
         m_Calls: []
---- !u!114 &1461363473850661598
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6043027518843909259}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0908100b30fe0ab4191734ae3261431f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_PokeFollowTransform: {fileID: 0}
-  m_PokeFill: {fileID: 0}
-  m_PokeFillMaxSizeX: 0
-  m_PokeFillMaxSizeY: 0
-  m_SmoothingSpeed: 8
-  m_ReturnToInitialPosition: 1
-  m_ApplyIfChildIsTarget: 1
-  m_ClampToMinDistance: 0
-  m_MinDistance: 0
-  m_ClampToMaxDistance: 0
-  m_MaxDistance: 0
 --- !u!1 &6139696744389439308
 GameObject:
   m_ObjectHideFlags: 0
@@ -896,15 +855,10 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Waiting for
-
-    [  Ara C  ]
-
-    to board the ship...'
+  m_text: Lobby Available.
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: fbb7c6a04be6d8341934b839f24b42e1, type: 2}
-  m_sharedMaterial: {fileID: 4687939059374929122, guid: fbb7c6a04be6d8341934b839f24b42e1,
-    type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
