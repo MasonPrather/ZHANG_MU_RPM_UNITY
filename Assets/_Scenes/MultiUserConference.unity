@@ -4283,6 +4283,7 @@ GameObject:
   - component: {fileID: 341821866}
   - component: {fileID: 341821865}
   - component: {fileID: 341821876}
+  - component: {fileID: 341821878}
   m_Layer: 0
   m_Name: Player (XR Origin)
   m_TagString: Player
@@ -4543,7 +4544,10 @@ MonoBehaviour:
   hmdTransform: {fileID: 1161827145}
   avatarRoot: {fileID: 1768695373}
   moveSpeedParam: moveSpeed
+  crouchParam: crouchFlag
   smoothTime: 0.1
+  crouchThreshold: 1.3
+  standThreshold: 1.5
   yawThreshold: 30
   smoothTurnSpeed: 120
   enableKeyboardTesting: 1
@@ -4563,6 +4567,21 @@ MonoBehaviour:
   m_InteractionManager: {fileID: 341821869}
   m_StartingGroupMembers: []
   m_StartingInteractionOverridesMap: []
+--- !u!114 &341821878
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 341821864}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1073a871178864277a7b704c69a9860e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  characterController: {fileID: 341821873}
+  cameraTransform: {fileID: 1161827145}
+  gravity: -9.81
 --- !u!1 &345729617
 GameObject:
   m_ObjectHideFlags: 0
@@ -12842,7 +12861,7 @@ GameObject:
   m_Component:
   - component: {fileID: 861210836}
   - component: {fileID: 861210837}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Renderer_Hair
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -15453,7 +15472,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1028591964}
   - component: {fileID: 1028591965}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Renderer_Head
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -16532,7 +16551,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1078674900}
   - component: {fileID: 1078674901}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Renderer_EyeLeft
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -17959,7 +17978,7 @@ Camera:
     y: 0
     width: 1
     height: 1
-  near clip plane: 0.25
+  near clip plane: 0.05
   far clip plane: 10000
   field of view: 60
   orthographic: 0
@@ -17967,7 +17986,7 @@ Camera:
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
-    m_Bits: 119
+    m_Bits: 55
   m_RenderingPath: -1
   m_TargetTexture: {fileID: 0}
   m_TargetDisplay: 0
@@ -18583,7 +18602,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1196366851}
   - component: {fileID: 1196366852}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Renderer_Teeth
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -23536,7 +23555,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1539562985}
   - component: {fileID: 1539562986}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Renderer_EyeRight
   m_TagString: Untagged
   m_Icon: {fileID: 0}

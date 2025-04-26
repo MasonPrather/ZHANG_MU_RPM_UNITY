@@ -11,7 +11,13 @@ public class M_LocalPlayerAnimator : MonoBehaviour
 
     [Header("Animation")]
     [SerializeField] private string moveSpeedParam = "MoveSpeed";
+    [SerializeField] private string crouchParam = "IsCrouching";
     [SerializeField] private float smoothTime = 0.1f;
+
+    [Header("Crouch Settings")]
+    [SerializeField] private float crouchThreshold = 1.3f;  // Y height below which player is considered crouching
+    [SerializeField] private float standThreshold = 1.5f;   // Y height above which player is standing again
+    private bool isCrouching = false;
 
     [Header("Smooth Turn Settings")]
     [SerializeField] private float yawThreshold = 45f;   // Degrees before initiating turn
@@ -31,7 +37,6 @@ public class M_LocalPlayerAnimator : MonoBehaviour
         if (moveInput.action != null)
             moveInput.action.Enable();
 
-        // Immediately align body to HMD on start
         if (hmdTransform != null && avatarRoot != null)
         {
             float hmdYaw = hmdTransform.eulerAngles.y;
@@ -65,9 +70,32 @@ public class M_LocalPlayerAnimator : MonoBehaviour
         smoothedSpeed = Mathf.SmoothDamp(smoothedSpeed, rawSpeed, ref currentVelocity, smoothTime);
 
         if (avatarAnimator != null)
+        {
             avatarAnimator.SetFloat(moveSpeedParam, smoothedSpeed);
+        }
         else
+        {
             Debug.LogWarning("[M_LocalPlayerAnimator] Animator reference not set!");
+        }
+
+        // —— Physical Crouch Detection via Headset Height ——
+        if (hmdTransform != null && avatarAnimator != null)
+        {
+            float headHeight = hmdTransform.localPosition.y;
+
+            if (!isCrouching && headHeight < crouchThreshold)
+            {
+                isCrouching = true;
+                avatarAnimator.SetFloat(crouchParam, 1);
+                Debug.Log("[Crouch] Crouch detected: HMD height = " + headHeight.ToString("0.00"));
+            }
+            else if (isCrouching && headHeight > standThreshold)
+            {
+                isCrouching = false;
+                avatarAnimator.SetFloat(crouchParam, 0);
+                Debug.Log("[Crouch] Standing up: HMD height = " + headHeight.ToString("0.00"));
+            }
+        }
 
         // —— Smooth Snap‑Turn Logic ——
         if (hmdTransform == null || avatarRoot == null)
@@ -79,7 +107,6 @@ public class M_LocalPlayerAnimator : MonoBehaviour
 
         if (!isTurning)
         {
-            // Only kick off a turn if we exceed threshold
             if (Mathf.Abs(yawDelta) > yawThreshold)
             {
                 targetRotation = Quaternion.Euler(0, hmdYaw, 0);
@@ -89,14 +116,12 @@ public class M_LocalPlayerAnimator : MonoBehaviour
         }
         else
         {
-            // Smoothly rotate toward the HMD direction
             avatarRoot.rotation = Quaternion.RotateTowards(
                 avatarRoot.rotation,
                 targetRotation,
                 smoothTurnSpeed * Time.deltaTime
             );
 
-            // When we’re within 0.1°, finish up
             if (Quaternion.Angle(avatarRoot.rotation, targetRotation) < 0.1f)
             {
                 avatarRoot.rotation = targetRotation;
