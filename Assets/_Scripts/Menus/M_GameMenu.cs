@@ -2,7 +2,6 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using XRMultiplayer;
-using UnityEngine.InputSystem;
 
 public class M_GameMenu : MonoBehaviour
 {
@@ -14,7 +13,9 @@ public class M_GameMenu : MonoBehaviour
 
     [Header("Settings")]
     [SerializeField] private string roomName;
-    [SerializeField] private InputActionProperty menuButtonAction;
+
+    [Header("Input Settings")]
+    [SerializeField] private OVRInput.Button toggleMenuButton = OVRInput.Button.Start; // Can use .Start, .One, .Two, etc.
 
     private GameObject lobbyMenu;
     private bool host;
@@ -24,17 +25,17 @@ public class M_GameMenu : MonoBehaviour
     {
         mainPanel.SetActive(true);
         loadingPanel.SetActive(false);
-
-        menuButtonAction.action.Enable();
-        menuButtonAction.action.performed += OnMenuButtonPressed;
     }
 
-    private void OnDestroy()
+    private void Update()
     {
-        menuButtonAction.action.performed -= OnMenuButtonPressed;
+        if (OVRInput.GetDown(toggleMenuButton))
+        {
+            ToggleMenu();
+        }
     }
 
-    private void OnMenuButtonPressed(InputAction.CallbackContext context)
+    private void ToggleMenu()
     {
         if (mainPanel == null) return;
 
@@ -59,7 +60,7 @@ public class M_GameMenu : MonoBehaviour
 
         if (XRINetworkGameManager.Connected.Value)
         {
-            OnConnected(true); // Already connected
+            OnConnected(true);
         }
         else
         {
@@ -119,17 +120,14 @@ public class M_GameMenu : MonoBehaviour
         {
             Debug.Log("[M_GameMenu] Connection successful!");
 
-            // Show success message
             ShowLoading(host ? "Lobby hosted!" : "Joined lobby!");
 
-            // Spawn lobby UI if host
             if (host && lobbyMenu == null)
             {
                 lobbyMenu = Instantiate(lobbyMenuPrefab, transform.parent);
                 lobbyMenu.SetActive(true);
             }
 
-            // Delay hiding loading screen for UX clarity
             Invoke(nameof(HideLoading), 1.25f);
         }
         else
