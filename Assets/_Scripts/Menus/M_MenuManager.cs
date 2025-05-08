@@ -113,14 +113,10 @@ namespace XRMultiplayer
         {
             if (!NetworkManager.Singleton.IsConnectedClient) return;
 
-            var clients = NetworkManager.Singleton.ConnectedClientsList;
-            lobbyPlayerListText.text = "Players in Lobby:\n";
+            int connected = NetworkManager.Singleton.ConnectedClientsList.Count;
+            int maxPlayers = XRINetworkGameManager.maxPlayers;
 
-            foreach (var client in clients)
-            {
-                lobbyPlayerListText.text += $"- Player {client.ClientId}\n";
-            }
-
+            lobbyPlayerListText.text = $"Players Connected: {connected}/{maxPlayers}";
             lobbyStatusText.text = "Connected!";
         }
 
