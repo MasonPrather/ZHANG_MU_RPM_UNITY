@@ -14,7 +14,7 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/_Scenes/MultiUserConference_Meta_2.unity
     guid: b7946e736357c4af49e2eade7f2f2792
-  - enabled: 1
+  - enabled: 0
     path: Assets/_Scenes/MultiUserConference_Meta_3.unity
     guid: 831793313461c469fad684f8172ae7e8
   - enabled: 0
@@ -23,9 +23,12 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/_Scenes/MultiUserConference_Meta_Reduction.unity
     guid: 2a8c607edde8a42b3a205910563d2039
-  - enabled: 1
+  - enabled: 0
     path: Assets/_Scenes/ConfRoom_NoXR.unity
     guid: 79b88640b14ac442fb2d0108ee7b2cc3
+  - enabled: 1
+    path: Assets/_Scenes/MainScene.unity
+    guid: 13cb2847fd5e548a78fbe16be0c2173c
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: c348712bda248c246b8c49b3db54643f, type: 3}
     com.unity.xr.arfoundation.simulation_settings: {fileID: 11400000, guid: 407ae315d25b345c98bddac601eb083d, type: 2}
