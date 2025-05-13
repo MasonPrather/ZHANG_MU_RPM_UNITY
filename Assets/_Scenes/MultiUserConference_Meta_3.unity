@@ -2417,7 +2417,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4537767295365296597, guid: fff7d43faa4204275afe794d32687d94, type: 3}
       propertyPath: GlobalObjectIdHash
-      value: 355346990
+      value: 3041718148
       objectReference: {fileID: 0}
     - target: {fileID: 4537767295365296597, guid: fff7d43faa4204275afe794d32687d94, type: 3}
       propertyPath: InScenePlacedSourceGlobalObjectIdHash
@@ -4740,7 +4740,7 @@ Light:
     serializedVersion: 2
     m_Bits: 4294967295
   m_RenderingLayerMask: 1
-  m_Lightmapping: 1
+  m_Lightmapping: 4
   m_LightShadowCasterMode: 0
   m_AreaSize: {x: 1, y: 1}
   m_BounceIntensity: 1
@@ -19080,7 +19080,7 @@ Transform:
   m_GameObject: {fileID: 1923851945}
   serializedVersion: 2
   m_LocalRotation: {x: 0.016230337, y: 0.000026233889, z: 0.00000042075348, w: 0.9998683}
-  m_LocalPosition: {x: 0, y: -0.3422494, z: 0.010031006}
+  m_LocalPosition: {x: 0, y: -0.6, z: 0.010031006}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -25635,7 +25635,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9fe5983e897db4168b91f3069efd97e7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  headBonePath: Armature/Hips/Spine/Spine1/Spine2/Neck/Head
 --- !u!1 &8066607030753604506
 GameObject:
   m_ObjectHideFlags: 0
@@ -27549,13 +27548,13 @@ MonoBehaviour:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
+  - {fileID: 333869782}
   - {fileID: 287733910}
   - {fileID: 313746059}
   - {fileID: 3130018415299760975}
   - {fileID: 1908478157}
   - {fileID: 3130018414228115632}
   - {fileID: 3130018414783652412}
-  - {fileID: 333869782}
   - {fileID: 1071760006}
   - {fileID: 7698975321774323058}
   - {fileID: 1154302997}

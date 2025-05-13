@@ -1,42 +1,31 @@
 using UnityEngine;
 
-public class M_HideHeadOneShot : MonoBehaviour
+public class M_HideLocalHeadMesh : MonoBehaviour
 {
-    [Tooltip("Path from avatar root to head bone (leave empty to search by name)")]
-    public string headBonePath = "Armature/Hips/Spine/Spine1/Spine2/Neck/Head";
-
     private bool hasHidden = false;
+
+    private readonly string[] rendererNamesToHide = new string[]
+    {
+        "Renderer_EyeLeft",
+        "Renderer_EyeRight",
+        "Renderer_Head",
+        "Renderer_Teeth",
+        "Renderer_Hair"
+    };
 
     public void DisableHead()
     {
         if (hasHidden) return;
         hasHidden = true;
 
-        Transform head = string.IsNullOrEmpty(headBonePath)
-            ? FindChildByName(transform, "Head")
-            : transform.Find(headBonePath);
-
-        if (head == null)
+        Renderer[] allRenderers = GetComponentsInChildren<Renderer>(true);
+        foreach (var rend in allRenderers)
         {
-            Debug.LogWarning($"[M_HideHeadOneShot] Could not find head at path: {headBonePath}");
-            return;
+            if (System.Array.Exists(rendererNamesToHide, name => rend.gameObject.name == name))
+            {
+                rend.enabled = false;
+                Debug.Log($"[M_HideLocalHeadMesh] Disabled renderer: {rend.gameObject.name}");
+            }
         }
-
-        foreach (var renderer in head.GetComponentsInChildren<Renderer>(true))
-        {
-            renderer.enabled = false;
-        }
-
-        Debug.Log("[M_HideHeadOneShot] Head renderers disabled.");
-    }
-
-    private Transform FindChildByName(Transform root, string name)
-    {
-        foreach (Transform child in root.GetComponentsInChildren<Transform>(true))
-        {
-            if (child.name == name)
-                return child;
-        }
-        return null;
     }
 }
