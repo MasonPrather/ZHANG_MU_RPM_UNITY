@@ -12,6 +12,6 @@ public class M_RPM_AvatarBridge : MonoBehaviour
 
     private void HandleAvatarLoaded(GameObject avatar)
     {
-        M_OVR_RigReferences.Singleton.AssignAvatarReferences(avatar);
+        M_Final_RigReferences.Singleton.AssignAvatarReferences(avatar);
     }
 }

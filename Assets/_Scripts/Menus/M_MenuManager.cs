@@ -1,98 +1,147 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
-using Unity.Netcode;
-using Unity.XR.CoreUtils.Bindings;
-using Unity.XR.CoreUtils.Bindings.Variables;
-using System;
+using UnityEngine.InputSystem;
+using XRMultiplayer;
 
 namespace XRMultiplayer
 {
     public class M_MenuManager : MonoBehaviour
     {
-        [Header("Panels")]
-        public GameObject mainMenuPanel;
-        public GameObject loadingPanel;
-        public GameObject lobbyPanel;
+        [Header("UI Panels")]
+        [SerializeField] private GameObject mainMenuPanel;
+        [SerializeField] private GameObject loadingPanel;
+        [SerializeField] private GameObject lobbyPanel;
 
         [Header("Lobby UI")]
-        public TMP_Text loadingText;
-        public TMP_Text lobbyPlayerListText;
-        public TMP_Text lobbyStatusText;
-        public Button startGameButton;
+        [SerializeField] private TMP_Text loadingText;
+        [SerializeField] private TMP_Text lobbyPlayerListText;
+        [SerializeField] private TMP_Text lobbyStatusText;
+        [SerializeField] private Button startGameButton;
 
-        private LobbyManager lobbyManager => XRINetworkGameManager.Instance.lobbyManager;
-        private IEventBinding statusObserver;
+        [Header("Settings")]
+        [SerializeField] private string roomName = "VRRoom";
+        [SerializeField] private InputActionProperty menuButtonAction;
 
-        private bool hasConnected = false;
-        private bool awaitingConnection = false;
+        private GameObject lobbyMenu;
+        private bool host = false;
+        private bool connectionHandled = false;
 
         private void Start()
         {
             ShowMainMenu();
 
-            // Subscribe to lobby failure callback
-            lobbyManager.OnLobbyFailed += HandleLobbyFailed;
-
-            // Observe status BindableVariable
-            statusObserver = LobbyManager.status.Subscribe(OnLobbyStatusChanged);
-            statusObserver.Bind();
-
-            // Listen for player join/leave
-            if (NetworkManager.Singleton != null)
+            if (menuButtonAction != null)
             {
-                NetworkManager.Singleton.OnClientConnectedCallback += HandleClientConnected;
-                NetworkManager.Singleton.OnClientDisconnectCallback += HandleClientDisconnected;
+                menuButtonAction.action.Enable();
+                menuButtonAction.action.performed += OnMenuButtonPressed;
             }
+        }
+
+        private void OnDestroy()
+        {
+            if (menuButtonAction != null)
+            {
+                menuButtonAction.action.performed -= OnMenuButtonPressed;
+            }
+
+            XRINetworkGameManager.Connected.Unsubscribe(OnConnected);
+        }
+
+        private void OnMenuButtonPressed(InputAction.CallbackContext context)
+        {
+            if (mainMenuPanel == null) return;
+
+            bool isActive = mainMenuPanel.activeSelf;
+            mainMenuPanel.SetActive(!isActive);
+
+            if (!isActive)
+                loadingPanel.SetActive(false);
         }
 
         public void OnHostGameClicked()
         {
-            ShowLoading("Creating lobby and hosting game...");
-            awaitingConnection = true;
-            _ = lobbyManager.CreateLobby();
+            if (XRINetworkGameManager.Instance == null) return;
+
+            Debug.Log("[M_MenuManager] Hosting lobby...");
+            host = true;
+            connectionHandled = false;
+
+            ShowLoading("Creating lobby and hosting...");
+
+            if (XRINetworkGameManager.Connected.Value)
+                OnConnected(true);
+            else
+                XRINetworkGameManager.Connected.Subscribe(OnConnected);
+
+            try
+            {
+                XRINetworkGameManager.Instance.CreateNewLobby(roomName, false, XRINetworkGameManager.maxPlayers / 2);
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError("[M_MenuManager] Failed to host: " + ex.Message);
+                ShowLoading("Failed to host lobby.");
+            }
         }
 
         public void OnJoinGameClicked()
         {
-            ShowLoading("Searching for lobbies...");
-            awaitingConnection = true;
-            _ = lobbyManager.QuickJoinLobby();
-        }
+            if (XRINetworkGameManager.Instance == null) return;
 
-        public void OnStartGameClicked()
-        {
-            Debug.Log("Start Game button clicked.");
-            // Insert your scene transition or network game start logic here
-        }
+            Debug.Log("[M_MenuManager] Joining lobby...");
+            host = false;
+            connectionHandled = false;
 
-        private void OnLobbyStatusChanged(string status)
-        {
-            if (status.ToLower().Contains("connected to lobby") && awaitingConnection && !hasConnected)
+            ShowLoading("Searching for available lobbies...");
+
+            if (XRINetworkGameManager.Connected.Value)
+                OnConnected(true);
+            else
+                XRINetworkGameManager.Connected.Subscribe(OnConnected);
+
+            try
             {
-                hasConnected = true;
-                awaitingConnection = false;
-                ShowLobby();
-                UpdateLobbyUI();
+                XRINetworkGameManager.Instance.QuickJoinLobby();
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError("[M_MenuManager] Failed to join: " + ex.Message);
+                ShowLoading("Failed to join lobby.");
             }
         }
 
-        private void HandleLobbyFailed(string reason)
+        private void OnConnected(bool connected)
         {
-            Debug.LogWarning($"[MenuManager] Lobby connection failed: {reason}");
-            ShowMainMenu();
-            loadingText.text = $"Failed to connect:\n{reason}";
-            awaitingConnection = false;
+            if (connectionHandled) return;
+            connectionHandled = true;
+
+            XRINetworkGameManager.Connected.Unsubscribe(OnConnected);
+
+            if (connected)
+            {
+                Debug.Log("[M_MenuManager] Successfully connected!");
+
+                ShowLoading(host ? "Lobby hosted!" : "Lobby joined!");
+
+                // Show lobby UI
+                Invoke(nameof(ShowLobby), 1.25f);
+            }
+            else
+            {
+                Debug.LogWarning("[M_MenuManager] Connection failed.");
+                ShowLoading("Connection failed.");
+            }
         }
 
-        public void ShowMainMenu()
+        private void ShowMainMenu()
         {
             mainMenuPanel.SetActive(true);
             loadingPanel.SetActive(false);
             lobbyPanel.SetActive(false);
         }
 
-        public void ShowLoading(string message)
+        private void ShowLoading(string message)
         {
             mainMenuPanel.SetActive(false);
             loadingPanel.SetActive(true);
@@ -100,49 +149,32 @@ namespace XRMultiplayer
             loadingText.text = message;
         }
 
-        public void ShowLobby()
+        private void ShowLobby()
         {
             mainMenuPanel.SetActive(false);
             loadingPanel.SetActive(false);
             lobbyPanel.SetActive(true);
 
-            startGameButton.gameObject.SetActive(NetworkManager.Singleton.IsHost);
+            UpdateLobbyUI();
+
+            startGameButton.gameObject.SetActive(XRINetworkGameManager.Instance.IsHost);
         }
 
-        public void UpdateLobbyUI()
+        private void UpdateLobbyUI()
         {
-            if (!NetworkManager.Singleton.IsConnectedClient) return;
+            if (!Unity.Netcode.NetworkManager.Singleton.IsConnectedClient) return;
 
-            int connected = NetworkManager.Singleton.ConnectedClientsList.Count;
+            int connected = Unity.Netcode.NetworkManager.Singleton.ConnectedClientsList.Count;
             int maxPlayers = XRINetworkGameManager.maxPlayers;
 
-            lobbyPlayerListText.text = $"Players Connected: {connected}/{maxPlayers}";
+            lobbyPlayerListText.text = $"Players Connected:\n{connected}/{maxPlayers}";
             lobbyStatusText.text = "Connected!";
         }
 
-        private void HandleClientConnected(ulong clientId)
+        public void OnStartGameClicked()
         {
-            Debug.Log($"[MenuManager] Client connected: {clientId}");
-            UpdateLobbyUI();
-        }
-
-        private void HandleClientDisconnected(ulong clientId)
-        {
-            Debug.Log($"[MenuManager] Client disconnected: {clientId}");
-            UpdateLobbyUI();
-        }
-
-        private void OnDestroy()
-        {
-            statusObserver?.Unbind();
-            if (lobbyManager != null)
-                lobbyManager.OnLobbyFailed -= HandleLobbyFailed;
-
-            if (NetworkManager.Singleton != null)
-            {
-                NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected;
-                NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
-            }
+            Debug.Log("[M_MenuManager] Start Game button clicked.");
+            // TODO: Add scene loading or game start logic here
         }
     }
 }

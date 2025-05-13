@@ -38,16 +38,6 @@ namespace XRMultiplayer
         private void OnClientConnected(ulong clientId)
         {
             Debug.Log($"Client connected: {clientId}");
-
-            // Example: Assign ownership and spawn player prefab
-            if (NetworkManager.Singleton.IsServer)
-            {
-                var playerPrefab = NetworkManager.Singleton.NetworkConfig.PlayerPrefab;
-                var playerInstance = Instantiate(playerPrefab);
-                playerInstance.GetComponent<NetworkObject>().SpawnAsPlayerObject(clientId);
-
-                Debug.Log($"Spawned player for client {clientId}");
-            }
         }
 
         private void OnClientDisconnected(ulong clientId)

@@ -11,12 +11,18 @@ EditorBuildSettings:
   - enabled: 0
     path: "Assets/Samples/Meta XR Interaction \u200BSDK/74.0.0/Example Scenes/RayExamples.unity"
     guid: 1b2d3f90c0f50b94cb910c66c773d00d
-  - enabled: 1
+  - enabled: 0
     path: Assets/_Scenes/MultiUserConference_Meta_2.unity
     guid: b7946e736357c4af49e2eade7f2f2792
   - enabled: 1
     path: Assets/_Scenes/MultiUserConference_Meta_3.unity
     guid: 831793313461c469fad684f8172ae7e8
+  - enabled: 0
+    path: Assets/_Scenes/MultiUserConference_Meta_Testing.unity
+    guid: 4756deefebf404c4ab2d8916d2c498ed
+  - enabled: 0
+    path: Assets/_Scenes/MultiUserConference_Meta_Reduction.unity
+    guid: 2a8c607edde8a42b3a205910563d2039
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: c348712bda248c246b8c49b3db54643f, type: 3}
     com.unity.xr.arfoundation.simulation_settings: {fileID: 11400000, guid: 407ae315d25b345c98bddac601eb083d, type: 2}
