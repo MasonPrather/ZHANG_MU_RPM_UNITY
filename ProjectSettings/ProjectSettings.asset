@@ -972,10 +972,10 @@ PlayerSettings:
   apiCompatibilityLevel: 6
   activeInputHandler: 1
   windowsGamepadBackendHint: 0
-  cloudProjectId: 7428fdac-41db-40e4-9049-779ae39e401c
+  cloudProjectId: 7c9735e3-b602-4432-a14f-1303b391934e
   framebufferDepthMemorylessMode: 0
   qualitySettingsNames: []
-  projectName: MultiUserFullBodyRPM
+  projectName: MultiUserFullBody
   organizationId: socialvr_fall24
   cloudEnabled: 0
   legacyClampBlendShapeWeights: 0
