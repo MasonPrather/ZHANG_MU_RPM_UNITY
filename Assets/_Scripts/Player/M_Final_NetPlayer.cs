@@ -21,6 +21,9 @@ public class M_Final_NetPlayer : NetworkBehaviour
     [Header("Mesh to Hide on Local Player")]
     public Renderer[] meshToDisable;
 
+    [Header("Eye Target (Optional)")]
+    public Transform eyeLookTarget;
+
     private readonly NetworkVariable<Vector3> syncedHeadPos = new(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
     private readonly NetworkVariable<Quaternion> syncedHeadRot = new(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
@@ -33,6 +36,7 @@ public class M_Final_NetPlayer : NetworkBehaviour
     private readonly NetworkVariable<Vector3> syncedHipsPos = new(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
     private readonly NetworkVariable<Quaternion> syncedHipsRot = new(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
+    private readonly NetworkVariable<Vector3> syncedEyeForward = new(Vector3.forward, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
     private readonly NetworkList<float> syncedExpressionWeights = new();
 
     private readonly FaceExpression[] expressionsToTrack = new FaceExpression[]
@@ -84,17 +88,17 @@ public class M_Final_NetPlayer : NetworkBehaviour
         }
         else
         {
-            ApplySyncData();
             ApplyFacialExpressions();
+            ApplyEyeTracking();
         }
     }
 
     private void UpdateSyncData()
     {
         var rig = M_Final_RigReferences.Singleton;
-        if (rig == null || rig.head == null || rig.leftHand == null || rig.rightHand == null || rig.hips == null || rig.faceExpressions == null)
+        if (rig == null || rig.head == null || rig.leftHand == null || rig.rightHand == null || rig.hips == null || !rig.IsFaceTrackingValid() || !rig.IsEyeTrackingValid())
         {
-            Debug.LogWarning("[NetPlayer] Rig reference or bone is missing.");
+            Debug.LogWarning("[NetPlayer] Rig reference or tracking is missing.");
             return;
         }
 
@@ -116,6 +120,8 @@ public class M_Final_NetPlayer : NetworkBehaviour
             if (i < syncedExpressionWeights.Count)
                 syncedExpressionWeights[i] = weight;
         }
+
+        syncedEyeForward.Value = rig.GetEyeForward();
     }
 
     private void ApplySyncData()
@@ -143,6 +149,14 @@ public class M_Final_NetPlayer : NetworkBehaviour
             int index = avatarMesh.sharedMesh.GetBlendShapeIndex(blendShapeNames[i]);
             if (index >= 0)
                 avatarMesh.SetBlendShapeWeight(index, syncedExpressionWeights[i] * 100f);
+        }
+    }
+
+    private void ApplyEyeTracking()
+    {
+        if (eyeLookTarget != null)
+        {
+            eyeLookTarget.forward = syncedEyeForward.Value;
         }
     }
 }

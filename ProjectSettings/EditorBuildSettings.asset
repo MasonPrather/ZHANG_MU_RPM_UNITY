@@ -5,27 +5,6 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 0
-    path: Assets/_Scenes/MultiUserConference_Meta.unity
-    guid: 9e295d10fa326425d8053d188516a61e
-  - enabled: 0
-    path: "Assets/Samples/Meta XR Interaction \u200BSDK/74.0.0/Example Scenes/RayExamples.unity"
-    guid: 1b2d3f90c0f50b94cb910c66c773d00d
-  - enabled: 0
-    path: Assets/_Scenes/MultiUserConference_Meta_2.unity
-    guid: b7946e736357c4af49e2eade7f2f2792
-  - enabled: 0
-    path: Assets/_Scenes/MultiUserConference_Meta_3.unity
-    guid: 831793313461c469fad684f8172ae7e8
-  - enabled: 0
-    path: Assets/_Scenes/MultiUserConference_Meta_Testing.unity
-    guid: 4756deefebf404c4ab2d8916d2c498ed
-  - enabled: 0
-    path: Assets/_Scenes/MultiUserConference_Meta_Reduction.unity
-    guid: 2a8c607edde8a42b3a205910563d2039
-  - enabled: 0
-    path: Assets/_Scenes/ConfRoom_NoXR.unity
-    guid: 79b88640b14ac442fb2d0108ee7b2cc3
   - enabled: 1
     path: Assets/_Scenes/MainScene.unity
     guid: 13cb2847fd5e548a78fbe16be0c2173c
