@@ -7,7 +7,7 @@ namespace UnityEngine.XR.Interaction.Toolkit.Samples.StarterAssets
     /// A custom reticle for a <see cref="TeleportationMultiAnchorVolume"/> that displays its progress towards evaluating
     /// a destination anchor and an indicator pointing in the direction of the destination anchor.
     /// </summary>
-    public class MultiAnchorTeleportReticle : MonoBehaviour, IXRInteractableCustomReticle
+    public class MultiAnchorTeleportReticle : MonoBehaviour, UnityEngine.XR.Interaction.Toolkit.Interactables.Visuals.IXRInteractableCustomReticle
     {
         [SerializeField]
         [Tooltip("Filled image that displays the progress towards evaluating a destination anchor.")]
@@ -65,7 +65,7 @@ namespace UnityEngine.XR.Interaction.Toolkit.Samples.StarterAssets
         float m_LastPotentialIndicatorUpdateTime;
 
         /// <inheritdoc/>
-        public void OnReticleAttached(XRBaseInteractable interactable, IXRCustomReticleProvider reticleProvider)
+        public void OnReticleAttached(UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable interactable, UnityEngine.XR.Interaction.Toolkit.Interactors.Visuals.IXRCustomReticleProvider reticleProvider)
         {
             m_AnchorVolume = interactable as TeleportationMultiAnchorVolume;
             m_PotentialDestinationIndicator.SetActive(false);

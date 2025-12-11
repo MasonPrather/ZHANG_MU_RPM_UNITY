@@ -23,7 +23,7 @@ namespace XRMultiplayer
     /// Classes can interhit from this class and override where applicable.
     /// See <see cref=NetworkPhysicsInteractable"/> for an example of how to extend this class.
     /// </remarks>
-    [RequireComponent(typeof(XRBaseInteractable))]
+    [RequireComponent(typeof(UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable))]
     [DisallowMultipleComponent]
     public class NetworkBaseInteractable : NetworkBehaviour, IXRSelectFilter, IXRHoverFilter
     {
@@ -165,12 +165,12 @@ namespace XRMultiplayer
         /// <summary>
         /// Base Interactable used for syncing events.
         /// </summary>
-        public XRBaseInteractable baseInteractable
+        public UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable baseInteractable
         {
             get => m_BaseInteractable;
             set => m_BaseInteractable = value;
         }
-        protected XRBaseInteractable m_BaseInteractable;
+        protected UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable m_BaseInteractable;
 
         public bool canProcess => isActiveAndEnabled;
 
@@ -400,7 +400,7 @@ namespace XRMultiplayer
         public virtual void OnSelectEnteredLocal(BaseInteractionEventArgs args)
         {
             // Return out early if the interactor is ignoring sockets or not syncing select.
-            if (m_IgnoreSocketSelectedCallback && args.interactorObject.transform.GetComponent<XRSocketInteractor>() != null)
+            if (m_IgnoreSocketSelectedCallback && args.interactorObject.transform.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactors.XRSocketInteractor>() != null)
                 return;
 
             if (CanHold())
@@ -426,7 +426,7 @@ namespace XRMultiplayer
         public virtual void OnSelectExitedLocal(BaseInteractionEventArgs args)
         {
             // Return out early if the interactor is ignoring sockets or not syncing select.
-            if (m_IgnoreSocketSelectedCallback && args.interactorObject.transform.GetComponent<XRSocketInteractor>() != null)
+            if (m_IgnoreSocketSelectedCallback && args.interactorObject.transform.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactors.XRSocketInteractor>() != null)
                 return;
 
             // Check if still holding with other hand.
@@ -634,7 +634,7 @@ namespace XRMultiplayer
                     StopCoroutine(m_RelinquishToHostEnumerator);
 
                 if (baseInteractable.isSelected)
-                    m_InteractionManager.CancelInteractableSelection((IXRSelectInteractable)baseInteractable);
+                    m_InteractionManager.CancelInteractableSelection((UnityEngine.XR.Interaction.Toolkit.Interactables.IXRSelectInteractable)baseInteractable);
 
             }
         }
@@ -667,7 +667,7 @@ namespace XRMultiplayer
             {
                 foreach (var interactor in baseInteractable.interactorsSelecting)
                 {
-                    if (interactor is XRSocketInteractor)
+                    if (interactor is UnityEngine.XR.Interaction.Toolkit.Interactors.XRSocketInteractor)
                     {
                         return true;
                     }
@@ -731,7 +731,7 @@ namespace XRMultiplayer
         /// <param name="interactor">Interactor being used to process the Select.</param>
         /// <param name="interactable"></param>
         /// <returns></returns>
-        public bool Process(IXRSelectInteractor interactor, IXRSelectInteractable interactable)
+        public bool Process(UnityEngine.XR.Interaction.Toolkit.Interactors.IXRSelectInteractor interactor, UnityEngine.XR.Interaction.Toolkit.Interactables.IXRSelectInteractable interactable)
         {
             return IsOwner || allowOverrideOwnership || (!IsOwner & !isInteracting);
         }
@@ -742,7 +742,7 @@ namespace XRMultiplayer
         /// <param name="interactor">Interactor being used to process the Hover.</param>
         /// <param name="interactable"></param>
         /// <returns></returns>
-        public bool Process(IXRHoverInteractor interactor, IXRHoverInteractable interactable)
+        public bool Process(UnityEngine.XR.Interaction.Toolkit.Interactors.IXRHoverInteractor interactor, UnityEngine.XR.Interaction.Toolkit.Interactables.IXRHoverInteractable interactable)
         {
             return IsOwner || allowOverrideOwnership || (!IsOwner & !isInteracting);
         }

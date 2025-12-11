@@ -26,7 +26,7 @@ namespace UnityEngine.XR.Interaction.Toolkit.Samples.StarterAssets
         }
 
         XRInteractableAffordanceStateProvider m_AffordanceStateProvider;
-        IXRInteractable m_Interactable;
+        UnityEngine.XR.Interaction.Toolkit.Interactables.IXRInteractable m_Interactable;
 
         /// <summary>
         /// See <see cref="MonoBehaviour"/>.
@@ -49,13 +49,13 @@ namespace UnityEngine.XR.Interaction.Toolkit.Samples.StarterAssets
             }
 
             var interactableSource = m_AffordanceStateProvider.interactableSource;
-            m_Interactable = interactableSource != null && interactableSource is IXRInteractable interactable
+            m_Interactable = interactableSource != null && interactableSource is UnityEngine.XR.Interaction.Toolkit.Interactables.IXRInteractable interactable
                     ? interactable
-                    : m_AffordanceStateProvider.GetComponentInParent<IXRInteractable>();
+                    : m_AffordanceStateProvider.GetComponentInParent<UnityEngine.XR.Interaction.Toolkit.Interactables.IXRInteractable>();
 
             if (m_Interactable == null)
             {
-                Debug.LogError($"Interactable source must be an {nameof(IXRInteractable)}.", this);
+                Debug.LogError($"Interactable source must be an {nameof(UnityEngine.XR.Interaction.Toolkit.Interactables.IXRInteractable)}.", this);
                 enabled = false;
                 return;
             }

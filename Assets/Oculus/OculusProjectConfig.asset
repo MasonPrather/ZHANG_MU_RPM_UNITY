@@ -16,14 +16,14 @@ MonoBehaviour:
   allowOptional3DofHeadTracking: 0
   handTrackingSupport: 1
   handTrackingFrequency: 0
-  handTrackingVersion: 0
+  handTrackingVersion: 2
   anchorSupport: 0
   sharedAnchorSupport: 0
   renderModelSupport: 0
   trackedKeyboardSupport: 0
-  bodyTrackingSupport: 1
-  faceTrackingSupport: 1
-  eyeTrackingSupport: 1
+  bodyTrackingSupport: 2
+  faceTrackingSupport: 2
+  eyeTrackingSupport: 2
   virtualKeyboardSupport: 0
   colocationSessionSupport: 0
   sceneSupport: 0

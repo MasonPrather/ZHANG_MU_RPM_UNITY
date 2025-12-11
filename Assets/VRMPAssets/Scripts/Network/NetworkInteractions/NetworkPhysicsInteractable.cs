@@ -183,7 +183,7 @@ namespace XRMultiplayer
             bool wasKinematic = m_Rigidbody.isKinematic;
             if (!m_Rigidbody.isKinematic)
             {
-                m_Rigidbody.velocity = Vector3.zero;
+                m_Rigidbody.linearVelocity = Vector3.zero;
                 m_Rigidbody.angularVelocity = Vector3.zero;
             }
             m_Rigidbody.interpolation = RigidbodyInterpolation.None;
@@ -212,7 +212,7 @@ namespace XRMultiplayer
             base.OnSelectEnteredLocal(args);
 
             // Return out early if the interactor is ignoring sockets or not syncing select.
-            if (m_IgnoreSocketSelectedCallback && args.interactorObject.transform.GetComponent<XRSocketInteractor>() != null) return;
+            if (m_IgnoreSocketSelectedCallback && args.interactorObject.transform.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactors.XRSocketInteractor>() != null) return;
 
             // Disable the network transform to allow smooth interaction with high latency and wait for ownership or timeout to re-enable.
             if (CanHold() & !IsOwner)
@@ -226,7 +226,7 @@ namespace XRMultiplayer
         {
             base.OnSelectExitedLocal(args);
             // Return out early if the interactor is ignoring sockets or not syncing select.
-            if (m_IgnoreSocketSelectedCallback && args.interactorObject.transform.GetComponent<XRSocketInteractor>() != null) return;
+            if (m_IgnoreSocketSelectedCallback && args.interactorObject.transform.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactors.XRSocketInteractor>() != null) return;
 
             // Check if still holding with other hand.
             if (m_BaseInteractable.isSelected) return;
@@ -240,7 +240,7 @@ namespace XRMultiplayer
             if (IsOwner)
             {
                 // Check for interactable type and update kinematic state on release.
-                if (baseInteractable.GetType() == typeof(XRGrabInteractable))
+                if (baseInteractable.GetType() == typeof(UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable))
                 {
                     /*
                     if (((XRGrabInteractable)baseInteractable).movementType == XRBaseInteractable.MovementType.VelocityTracking || ((UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable)baseInteractable).throwOnDetach)
@@ -265,7 +265,7 @@ namespace XRMultiplayer
                 m_IsInteracting.Value = baseInteractable.isSelected;
                 if (!baseInteractable.isSelected & !m_Rigidbody.isKinematic)
                 {
-                    m_Rigidbody.velocity = m_AverageVelocity;
+                    m_Rigidbody.linearVelocity = m_AverageVelocity;
                 }
             }
         }
@@ -300,7 +300,7 @@ namespace XRMultiplayer
         /// <returns>Returns true if this object is moving faster than the <see cref="m_MinExchangeVelocityMagitude"/> and the object we are hitting.</returns>
         protected bool IsMovingFaster(Rigidbody otherBody)
         {
-            return m_Rigidbody.velocity.magnitude > m_MinExchangeVelocityMagitude && m_Rigidbody.velocity.magnitude > otherBody.velocity.magnitude;
+            return m_Rigidbody.linearVelocity.magnitude > m_MinExchangeVelocityMagitude && m_Rigidbody.linearVelocity.magnitude > otherBody.linearVelocity.magnitude;
         }
 
         /// <summary>
@@ -326,9 +326,9 @@ namespace XRMultiplayer
             m_ClientNetworkTransform.enabled = false;
             if (!m_Rigidbody.isKinematic)
             {
-                m_Rigidbody.velocity = m_AverageVelocity;
+                m_Rigidbody.linearVelocity = m_AverageVelocity;
             }
-            if (((XRGrabInteractable)baseInteractable).movementType != XRBaseInteractable.MovementType.Kinematic)
+            if (((UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable)baseInteractable).movementType != UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable.MovementType.Kinematic)
             {
                 m_Rigidbody.isKinematic = false;
             }

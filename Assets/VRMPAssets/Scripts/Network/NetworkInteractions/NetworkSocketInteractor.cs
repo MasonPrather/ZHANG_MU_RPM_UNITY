@@ -1,7 +1,7 @@
 using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.XR.Interaction.Toolkit;
+
 
 namespace XRMultiplayer
 {
@@ -9,13 +9,13 @@ namespace XRMultiplayer
     /// NetworkSocketInteractor class is responsible for synchronizing the
     /// <see cref="XRSocketInteractor"/> functionality over the network.
     /// </summary>
-    [RequireComponent(typeof(XRSocketInteractor))]
+    [RequireComponent(typeof(UnityEngine.XR.Interaction.Toolkit.Interactors.XRSocketInteractor))]
     public class NetworkSocketInteractor : NetworkBehaviour
     {
         /// <summary>
         /// Socket Interactor to use.
         /// </summary>
-        XRSocketInteractor m_SocketInteractor;
+        UnityEngine.XR.Interaction.Toolkit.Interactors.XRSocketInteractor m_SocketInteractor;
 
         /// <summary>
         /// Coroutine used to disable the <see cref="XRSocketInteractor"/> component on Hover Exit across the network.
@@ -43,8 +43,8 @@ namespace XRMultiplayer
         public override void OnNetworkDespawn()
         {
             base.OnNetworkDespawn();
-
-            XRGrabInteractable grabInteractable = m_SocketInteractor.GetOldestInteractableSelected() as XRGrabInteractable;
+            /*
+            UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable grabInteractable = m_SocketInteractor.GetOldestInteractableSelected() as UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable;
             m_SocketInteractor.enabled = false;
             if (grabInteractable != null)
             {
@@ -55,6 +55,7 @@ namespace XRMultiplayer
                     networkInteractable.ResetObjectPhysics();
                 }
             }
+            */
         }
 
         /// <summary>

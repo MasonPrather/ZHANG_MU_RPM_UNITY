@@ -1,180 +1,265 @@
-using TMPro;
-using UnityEngine;
-using UnityEngine.UI;
-using UnityEngine.InputSystem;
-using XRMultiplayer;
+/*
+ * OneClickMatchMenu.cs
+ * - Host/Join with lightweight UI flow guards.
+ */
 
-namespace XRMultiplayer
+using System;
+using System.Collections;
+using System.Threading.Tasks;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+namespace Meta.XR.MultiplayerBlocks.Shared
 {
     public class M_MenuManager : MonoBehaviour
     {
-        [Header("UI Panels")]
-        [SerializeField] private GameObject mainMenuPanel;
-        [SerializeField] private GameObject loadingPanel;
-        [SerializeField] private GameObject lobbyPanel;
+        [Header("References")]
+        [SerializeField] private CustomMatchmaking matchmaking;
 
-        [Header("Lobby UI")]
-        [SerializeField] private TMP_Text loadingText;
-        [SerializeField] private TMP_Text lobbyPlayerListText;
-        [SerializeField] private TMP_Text lobbyStatusText;
-        [SerializeField] private Button startGameButton;
+        [Header("UI/Flow")]
+        [SerializeField] private string gameplayScene = "Game";
+        [SerializeField, Min(1f)] private float joinTimeoutSec = 8f;
 
-        [Header("Settings")]
-        [SerializeField] private string roomName = "VRRoom";
-        [SerializeField] private InputActionProperty menuButtonAction;
+        [Header("Panels")]
+        [SerializeField] private GameObject MainPanel;
+        [SerializeField] private GameObject HostingPanel;        // “Hosting Lobby…”
+        [SerializeField] private GameObject JoiningPanel;        // “Joining Lobby…”
+        [SerializeField] private GameObject JoinFailedPanel;     // “No public games found…”
+        [SerializeField] private GameObject LobbyHostedPanel;    // success toast (host)
+        [SerializeField] private GameObject LobbyJoinedPanel;    // success toast (join)
+        [SerializeField, Min(0.5f)] private float successToastSeconds = 3f;
 
-        private GameObject lobbyMenu;
-        private bool host = false;
-        private bool connectionHandled = false;
+        [Header("Room Defaults (applied when Hosting)")]
+        [SerializeField] private string lobbyName = "myLobby"; // groups rooms
+        [SerializeField, Range(2, 32)] private int maxPlayers = 8;
+        [SerializeField] private bool isPrivate = false;       // keep false for auto-join
+        [SerializeField] private bool passwordProtect = false; // keep false for one-click
+
+        private void Reset()
+        {
+            matchmaking = GetComponent<CustomMatchmaking>();
+        }
 
         private void Start()
         {
-            ShowMainMenu();
-
-            if (menuButtonAction != null)
+            if (M_VivoxManager.Instance != null)
             {
-                menuButtonAction.action.Enable();
-                menuButtonAction.action.performed += OnMenuButtonPressed;
+                M_VivoxManager.Instance.VivoxReady += OnVivoxReady;
+                M_VivoxManager.Instance.ChannelJoined += OnVoiceChannelJoined;
+                M_VivoxManager.Instance.ChannelLeft += OnVoiceChannelLeft;
             }
+        }
+
+        private void Awake()
+        {
+            if (matchmaking == null)
+                matchmaking = GetComponent<CustomMatchmaking>();
+
+            // Optional feedback hooks
+            if (matchmaking != null)
+            {
+                matchmaking.onRoomCreationFinished.AddListener(OnRoomCreated);
+                matchmaking.onRoomJoinFinished.AddListener(OnRoomJoined);
+                matchmaking.onRoomLeaveFinished.AddListener(OnRoomLeft);
+            }
+
+            // Default to main on boot
+            ShowOnly(MainPanel);
         }
 
         private void OnDestroy()
         {
-            if (menuButtonAction != null)
+            if (M_VivoxManager.Instance != null)
             {
-                menuButtonAction.action.performed -= OnMenuButtonPressed;
+                M_VivoxManager.Instance.VivoxReady -= OnVivoxReady;
+                M_VivoxManager.Instance.ChannelJoined -= OnVoiceChannelJoined;
+                M_VivoxManager.Instance.ChannelLeft -= OnVoiceChannelLeft;
             }
-
-            XRINetworkGameManager.Connected.Unsubscribe(OnConnected);
         }
 
-        private void OnMenuButtonPressed(InputAction.CallbackContext context)
+        // -------------------- UI Buttons --------------------
+
+        public async void OnClick_Host()
         {
-            if (mainMenuPanel == null) return;
+            if (matchmaking == null) { Debug.LogError("CustomMatchmaking ref missing."); return; }
 
-            bool isActive = mainMenuPanel.activeSelf;
-            mainMenuPanel.SetActive(!isActive);
-
-            if (!isActive)
-                loadingPanel.SetActive(false);
-        }
-
-        public void OnHostGameClicked()
-        {
-            if (XRINetworkGameManager.Instance == null) return;
-
-            Debug.Log("[M_MenuManager] Hosting lobby...");
-            host = true;
-            connectionHandled = false;
-
-            ShowLoading("Creating lobby and hosting...");
-
-            if (XRINetworkGameManager.Connected.Value)
-                OnConnected(true);
-            else
-                XRINetworkGameManager.Connected.Subscribe(OnConnected);
+            // Guard UI
+            ShowOnly(HostingPanel);
 
             try
             {
-                XRINetworkGameManager.Instance.CreateNewLobby(roomName, false, XRINetworkGameManager.maxPlayers / 2);
+                matchmaking.LobbyName = string.IsNullOrWhiteSpace(lobbyName) ? "myLobby" : lobbyName;
+                matchmaking.MaxPlayersPerRoom = maxPlayers;
+                matchmaking.IsPrivate = isPrivate;
+                matchmaking.IsPasswordProtected = passwordProtect;
+
+                var result = await matchmaking.CreateRoom();
+                if (!result.IsSuccess)
+                {
+                    Debug.LogWarning($"Host failed: {result.ErrorMessage}");
+                    // Bounce back to main so user can try again
+                    ShowOnly(MainPanel);
+                    return;
+                }
+
+                // Success: quick toast, then clear UI, then load scene
+                yieldToastThenHide(LobbyHostedPanel, successToastSeconds);
+                await LoadGameplayAsync();
             }
-            catch (System.Exception ex)
+            catch (Exception e)
             {
-                Debug.LogError("[M_MenuManager] Failed to host: " + ex.Message);
-                ShowLoading("Failed to host lobby.");
+                Debug.LogError($"Host exception: {e.Message}");
+                ShowOnly(MainPanel);
             }
         }
 
-        public void OnJoinGameClicked()
+        public async void OnClick_Join()
         {
-            if (XRINetworkGameManager.Instance == null) return;
+            if (matchmaking == null) { Debug.LogError("CustomMatchmaking ref missing."); return; }
 
-            Debug.Log("[M_MenuManager] Joining lobby...");
-            host = false;
-            connectionHandled = false;
-
-            ShowLoading("Searching for available lobbies...");
-
-            if (XRINetworkGameManager.Connected.Value)
-                OnConnected(true);
-            else
-                XRINetworkGameManager.Connected.Subscribe(OnConnected);
+            // Guard UI
+            ShowOnly(JoiningPanel);
 
             try
             {
-                XRINetworkGameManager.Instance.QuickJoinLobby();
+                var lobby = string.IsNullOrWhiteSpace(lobbyName) ? matchmaking.LobbyName : lobbyName;
+                if (string.IsNullOrWhiteSpace(lobby)) lobby = "myLobby";
+
+                var joinTask = matchmaking.JoinOpenRoom(lobby);
+                var timeoutTask = Task.Delay(TimeSpan.FromSeconds(joinTimeoutSec));
+
+                var completed = await Task.WhenAny(joinTask, timeoutTask);
+
+                if (completed == timeoutTask)
+                {
+                    Debug.Log("[Join] Timeout. No open rooms (or network slow). Staying in menu.");
+                    ShowOnly(JoinFailedPanel);
+                    return;
+                }
+
+                var result = await joinTask;
+                if (!result.IsSuccess)
+                {
+                    Debug.LogWarning($"[Join] Failed: {result.ErrorMessage}");
+                    ShowOnly(JoinFailedPanel);
+                    return;
+                }
+
+                // Success: quick toast, then clear UI, then load scene
+                yieldToastThenHide(LobbyJoinedPanel, successToastSeconds);
+                await LoadGameplayAsync();
             }
-            catch (System.Exception ex)
+            catch (Exception e)
             {
-                Debug.LogError("[M_MenuManager] Failed to join: " + ex.Message);
-                ShowLoading("Failed to join lobby.");
+                Debug.LogWarning($"Join exception: {e.Message}");
+                ShowOnly(JoinFailedPanel);
             }
         }
 
-        private void OnConnected(bool connected)
+        // Button on JoinFailedPanel -> back to main
+        public void OnClick_ReturnToMain()
         {
-            if (connectionHandled) return;
-            connectionHandled = true;
+            M_VivoxManager.Instance?.LeaveChannel();
+            ShowOnly(MainPanel);
+        }
 
-            XRINetworkGameManager.Connected.Unsubscribe(OnConnected);
+        // -------------------- Scene / UI helpers --------------------
 
-            if (connected)
+        private async Task LoadGameplayAsync()
+        {
+            if (SceneManager.GetActiveScene().name != gameplayScene)
+                await SceneManager.LoadSceneAsync(gameplayScene);
+        }
+
+        private void ShowNoLobbiesFound()
+        {
+            ShowOnly(JoinFailedPanel);
+        }
+
+        private void ShowOnly(GameObject target)
+        {
+            // Disable all known panels, then enable the one we want (if provided)
+            SetActiveSafe(MainPanel, false);
+            SetActiveSafe(HostingPanel, false);
+            SetActiveSafe(JoiningPanel, false);
+            SetActiveSafe(JoinFailedPanel, false);
+            SetActiveSafe(LobbyHostedPanel, false);
+            SetActiveSafe(LobbyJoinedPanel, false);
+
+            SetActiveSafe(target, true);
+        }
+
+        private void HideAllPanels()
+        {
+            ShowOnly(null);
+        }
+
+        private void SetActiveSafe(GameObject go, bool active)
+        {
+            if (go != null && go.activeSelf != active) go.SetActive(active);
+        }
+
+        private void yieldToastThenHide(GameObject toastPanel, float seconds)
+        {
+            if (toastPanel == null) { HideAllPanels(); return; }
+            ShowOnly(toastPanel);
+            StartCoroutine(AutoHideToast(seconds));
+        }
+
+        private IEnumerator AutoHideToast(float seconds)
+        {
+            yield return new WaitForSeconds(seconds);
+            HideAllPanels(); // leaves no UI visible
+        }
+
+        // -------------------- Optional event hooks --------------------
+
+        private void OnRoomCreated(CustomMatchmaking.RoomOperationResult result)
+        {
+            if (result.IsSuccess)
             {
-                Debug.Log("[M_MenuManager] Successfully connected!");
-
-                ShowLoading(host ? "Lobby hosted!" : "Lobby joined!");
-
-                // Show lobby UI
-                Invoke(nameof(ShowLobby), 1.25f);
+                Debug.Log($"Room created. Token={result.RoomToken}");
+                StartCoroutine(JoinVivoxWhenReady(GetLobbyName()));
             }
-            else
+        }
+
+        private void OnRoomJoined(CustomMatchmaking.RoomOperationResult result)
+        {
+            if (result.IsSuccess)
             {
-                Debug.LogWarning("[M_MenuManager] Connection failed.");
-                ShowLoading("Connection failed.");
+                Debug.Log($"Joined room. Token={result.RoomToken}");
+                StartCoroutine(JoinVivoxWhenReady(GetLobbyName()));
             }
         }
 
-        private void ShowMainMenu()
+        // --- Where to LEAVE voice ---
+
+        private void OnRoomLeft()
         {
-            mainMenuPanel.SetActive(true);
-            loadingPanel.SetActive(false);
-            lobbyPanel.SetActive(false);
+            Debug.Log("Left room.");
+            M_VivoxManager.Instance?.LeaveChannel();
         }
 
-        private void ShowLoading(string message)
+        // --- Helpers ---
+
+        private IEnumerator JoinVivoxWhenReady(string channel)
         {
-            mainMenuPanel.SetActive(false);
-            loadingPanel.SetActive(true);
-            lobbyPanel.SetActive(false);
-            loadingText.text = message;
+            yield return new WaitUntil(() =>
+                M_VivoxManager.Instance != null && M_VivoxManager.Instance.IsReady
+            );
+            M_VivoxManager.Instance.JoinChannel(channel);
         }
 
-        private void ShowLobby()
+        private string GetLobbyName()
         {
-            mainMenuPanel.SetActive(false);
-            loadingPanel.SetActive(false);
-            lobbyPanel.SetActive(true);
-
-            UpdateLobbyUI();
-
-            startGameButton.gameObject.SetActive(XRINetworkGameManager.Instance.IsHost);
+            var name = string.IsNullOrWhiteSpace(lobbyName) ? matchmaking?.LobbyName : lobbyName;
+            return string.IsNullOrWhiteSpace(name) ? "myLobby" : name;
         }
 
-        private void UpdateLobbyUI()
-        {
-            if (!Unity.Netcode.NetworkManager.Singleton.IsConnectedClient) return;
+        // --- Optional: Vivox event logs ---
 
-            int connected = Unity.Netcode.NetworkManager.Singleton.ConnectedClientsList.Count;
-            int maxPlayers = XRINetworkGameManager.maxPlayers;
-
-            lobbyPlayerListText.text = $"Players Connected:\n{connected}/{maxPlayers}";
-            lobbyStatusText.text = "Connected!";
-        }
-
-        public void OnStartGameClicked()
-        {
-            Debug.Log("[M_MenuManager] Start Game button clicked.");
-            // TODO: Add scene loading or game start logic here
-        }
+        private void OnVivoxReady() => Debug.Log("[Vivox] Ready");
+        private void OnVoiceChannelJoined(string chan) => Debug.Log($"[Vivox] Joined {chan}");
+        private void OnVoiceChannelLeft(string chan) => Debug.Log($"[Vivox] Left {chan}");
     }
 }
