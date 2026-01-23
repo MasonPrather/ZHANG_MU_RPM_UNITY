@@ -7,9 +7,9 @@ using System.Threading;
 using UnityEngine;
 
 /// <summary>
-/// Minimal HTTP server for receiving a raw image body via:
-///   POST /upload-photo
-/// Saves the body to disk and updates LastSavedPhotoPath for viewers to poll.
+/// Minimal HTTP server:
+/// - GET /ping -> {"status":"pong"}
+/// - POST /upload-photo (raw body) -> saves jpg and updates LastSavedPhotoPath.
 /// </summary>
 public class M_SimpleHttpServer
 {
@@ -19,7 +19,7 @@ public class M_SimpleHttpServer
     private readonly string _uploadRoot;
 
     private TcpListener _listener;
-    private Thread _listenerThread;
+    private Thread _thread;
     private volatile bool _running;
 
     public M_SimpleHttpServer(int port, string uploadRoot)
@@ -33,32 +33,31 @@ public class M_SimpleHttpServer
         }
         catch (Exception ex)
         {
-            Debug.LogError($"[HttpServer] Failed to create upload root '{_uploadRoot}': {ex}");
+            Debug.LogError($"[M_SimpleHttpServer] Failed to create upload root '{_uploadRoot}': {ex}");
         }
     }
 
     public void Start()
     {
         if (_running) return;
-
         _running = true;
-        _listenerThread = new Thread(ListenLoop) { IsBackground = true };
-        _listenerThread.Start();
+
+        _thread = new Thread(ListenLoop) { IsBackground = true };
+        _thread.Start();
     }
 
     public void Stop()
     {
         _running = false;
 
-        try { _listener?.Stop(); }
-        catch { /* ignore */ }
+        try { _listener?.Stop(); } catch { }
 
         try
         {
-            if (_listenerThread != null && _listenerThread.IsAlive)
-                _listenerThread.Join(500);
+            if (_thread != null && _thread.IsAlive)
+                _thread.Join(500);
         }
-        catch { /* ignore */ }
+        catch { }
     }
 
     private void ListenLoop()
@@ -68,7 +67,7 @@ public class M_SimpleHttpServer
             _listener = new TcpListener(IPAddress.Any, _port);
             _listener.Start();
 
-            Debug.Log($"[HttpServer] Listening on 0.0.0.0:{_port}");
+            Debug.Log($"[M_SimpleHttpServer] Listening on 0.0.0.0:{_port}");
 
             while (_running)
             {
@@ -78,19 +77,14 @@ public class M_SimpleHttpServer
                     continue;
                 }
 
-                TcpClient client = _listener.AcceptTcpClient();
+                var client = _listener.AcceptTcpClient();
                 client.NoDelay = true;
-
                 ThreadPool.QueueUserWorkItem(HandleClient, client);
             }
         }
-        catch (SocketException ex)
-        {
-            Debug.LogError($"[HttpServer] SocketException: {ex.Message}");
-        }
         catch (Exception ex)
         {
-            Debug.LogError($"[HttpServer] Exception: {ex}");
+            Debug.LogError($"[M_SimpleHttpServer] ListenLoop exception: {ex}");
         }
     }
 
@@ -101,6 +95,9 @@ public class M_SimpleHttpServer
         {
             try
             {
+                var remote = client.Client.RemoteEndPoint as IPEndPoint;
+                string remoteIp = remote != null ? remote.Address.ToString() : "UNKNOWN";
+
                 byte[] headerBytes = ReadHeaders(stream, out int headerEndIndex);
                 if (headerBytes == null || headerEndIndex < 0)
                 {
@@ -117,7 +114,6 @@ public class M_SimpleHttpServer
                     return;
                 }
 
-                // Request line: METHOD PATH HTTP/1.1
                 string[] req = lines[0].Split(' ');
                 string method = req.Length > 0 ? req[0] : "";
                 string path = req.Length > 1 ? req[1] : "/";
@@ -125,16 +121,20 @@ public class M_SimpleHttpServer
                 int contentLength = 0;
                 for (int i = 1; i < lines.Length; i++)
                 {
-                    string line = lines[i];
-                    if (line.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase))
+                    if (lines[i].StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase))
                     {
-                        int.TryParse(line.Substring("Content-Length:".Length).Trim(), out contentLength);
+                        int.TryParse(lines[i].Substring("Content-Length:".Length).Trim(), out contentLength);
                         break;
                     }
                 }
 
-                if (!method.Equals("POST", StringComparison.OrdinalIgnoreCase) ||
-                    !path.Equals("/upload-photo", StringComparison.OrdinalIgnoreCase))
+                if (method.Equals("GET", StringComparison.OrdinalIgnoreCase) && path.Equals("/ping", StringComparison.OrdinalIgnoreCase))
+                {
+                    Send(stream, 200, "{\"status\":\"pong\"}");
+                    return;
+                }
+
+                if (!method.Equals("POST", StringComparison.OrdinalIgnoreCase) || !path.Equals("/upload-photo", StringComparison.OrdinalIgnoreCase))
                 {
                     Send(stream, 404, "{\"error\":\"not_found\"}");
                     return;
@@ -145,6 +145,8 @@ public class M_SimpleHttpServer
                     Send(stream, 400, "{\"error\":\"invalid_content_length\"}");
                     return;
                 }
+
+                Debug.Log($"[M_SimpleHttpServer] Request from {remoteIp}: POST /upload-photo, Content-Length={contentLength}");
 
                 byte[] body = ReadBody(stream, headerBytes, headerEndIndex, contentLength);
                 if (body == null)
@@ -164,7 +166,7 @@ public class M_SimpleHttpServer
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[HttpServer] HandleClient exception: {ex}");
+                Debug.LogError($"[M_SimpleHttpServer] HandleClient exception: {ex}");
                 try { Send(stream, 500, "{\"error\":\"server_error\"}"); } catch { }
             }
         }
@@ -243,12 +245,12 @@ public class M_SimpleHttpServer
             File.WriteAllBytes(fullPath, data);
             LastSavedPhotoPath = fullPath;
 
-            Debug.Log($"[HttpServer] Saved photo: {fullPath} (bytes={data.Length})");
+            Debug.Log($"[M_SimpleHttpServer] Saved photo: {fullPath} (bytes={data.Length})");
             return fullPath;
         }
         catch (Exception ex)
         {
-            Debug.LogError($"[HttpServer] SavePhoto failed: {ex}");
+            Debug.LogError($"[M_SimpleHttpServer] SavePhoto failed: {ex}");
             return null;
         }
     }

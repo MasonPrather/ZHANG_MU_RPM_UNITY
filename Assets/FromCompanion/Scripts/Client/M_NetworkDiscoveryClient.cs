@@ -1,69 +1,124 @@
 using System;
+using System.Collections;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Collections;
 using UnityEngine;
 
+/// <summary>
+/// Listens for UDP beacons and stores the discovered server IP + httpPort.
+/// IMPORTANT: The correct HTTP target IP is the UDP sender endpoint IP (sender.Address),
+/// not anything embedded in the message.
+/// </summary>
 public class M_NetworkDiscoveryClient : MonoBehaviour
 {
     [Header("Discovery Settings")]
     public int discoveryPort = 7777;
     public float timeoutSeconds = 5f;
 
+    [Header("Result (Read-Only)")]
     [HideInInspector] public string discoveredIp;
     [HideInInspector] public int discoveredPort;
+
+    private UdpClient _udp;
+    private IPEndPoint _any;
+
+    private void OnEnable()
+    {
+        StartDiscovery();
+    }
+
+    private void OnDisable()
+    {
+        StopDiscovery();
+    }
+
+    public void StartDiscovery()
+    {
+        StopDiscovery();
+
+        try
+        {
+            _any = new IPEndPoint(IPAddress.Any, 0);
+
+            // Bind to ALL interfaces on the discovery port
+            _udp = new UdpClient(new IPEndPoint(IPAddress.Any, discoveryPort));
+            _udp.EnableBroadcast = true;
+            _udp.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+
+            Debug.Log($"[M_NetworkDiscoveryClient] Listening for beacons on UDP {discoveryPort}");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[M_NetworkDiscoveryClient] Failed to bind UDP {discoveryPort}: {ex}");
+            _udp = null;
+        }
+    }
+
+    public void StopDiscovery()
+    {
+        try { _udp?.Close(); } catch { }
+        _udp = null;
+    }
 
     public IEnumerator DiscoverServerCoroutine()
     {
         discoveredIp = null;
         discoveredPort = 0;
 
-        using (UdpClient client = new UdpClient())
+        float start = Time.unscaledTime;
+
+        while (Time.unscaledTime - start < timeoutSeconds)
         {
-            client.EnableBroadcast = true;
-
-            byte[] requestBytes = Encoding.UTF8.GetBytes("VR_DISCOVERY_REQUEST");
-            IPEndPoint broadcastEndpoint = new IPEndPoint(IPAddress.Broadcast, discoveryPort);
-
-            try
-            {
-                client.Send(requestBytes, requestBytes.Length, broadcastEndpoint);
-                Debug.Log("[M_NetworkDiscoveryClient] Sent discovery broadcast");
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[M_NetworkDiscoveryClient] Failed to send broadcast: {ex}");
+            if (_udp == null)
                 yield break;
-            }
 
-            float startTime = Time.time;
-
-            while (Time.time - startTime < timeoutSeconds)
+            while (_udp.Available > 0)
             {
-                if (client.Available > 0)
-                {
-                    IPEndPoint serverEndpoint = new IPEndPoint(IPAddress.Any, 0);
-                    byte[] respBytes = client.Receive(ref serverEndpoint);
-                    string resp = Encoding.UTF8.GetString(respBytes).Trim();
+                byte[] bytes = null;
+                IPEndPoint sender = new IPEndPoint(IPAddress.Any, 0);
 
-                    if (resp.StartsWith("VR_SERVER_RESPONSE|"))
+                try
+                {
+                    bytes = _udp.Receive(ref sender);
+                }
+                catch
+                {
+                    bytes = null;
+                }
+
+                if (bytes == null || bytes.Length == 0)
+                    continue;
+
+                string msg = Encoding.UTF8.GetString(bytes).Trim();
+                if (!msg.StartsWith("PHOTO_SERVER", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                // Parse httpPort from the beacon
+                int httpPort = 0;
+                var parts = msg.Split('|');
+                foreach (var p in parts)
+                {
+                    if (p.StartsWith("httpPort=", StringComparison.OrdinalIgnoreCase))
                     {
-                        string[] parts = resp.Split('|');
-                        if (parts.Length >= 2 && int.TryParse(parts[1], out int port))
-                        {
-                            discoveredIp = serverEndpoint.Address.ToString();
-                            discoveredPort = port;
-                            Debug.Log($"[M_NetworkDiscoveryClient] Found server at {discoveredIp}:{discoveredPort}");
-                            yield break;
-                        }
+                        int.TryParse(p.Substring("httpPort=".Length), out httpPort);
                     }
                 }
 
-                yield return null;
+                if (httpPort <= 0)
+                    continue;
+
+                // CRITICAL: Use sender endpoint IP
+                discoveredIp = sender.Address.ToString();
+                discoveredPort = httpPort;
+
+                Debug.Log($"[M_NetworkDiscoveryClient] Found server at {discoveredIp}:{discoveredPort} (from UDP sender endpoint)");
+                yield break;
             }
 
-            Debug.LogWarning("[M_NetworkDiscoveryClient] Discovery timed out. No server found.");
+            yield return null;
         }
+
+        Debug.LogWarning("[M_NetworkDiscoveryClient] Discovery timed out. No server found.");
     }
 }

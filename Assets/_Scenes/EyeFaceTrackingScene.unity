@@ -9344,8 +9344,6 @@ MonoBehaviour:
     serializedVersion: 2
     rgba: 4278190080
   pollFromHttpServer: 1
-  useMaterialPropertyBlock: 1
-  forceDirectMaterialSet: 1
   infoText: {fileID: 0}
   maxLoadRetries: 10
   retryDelaySeconds: 0.05

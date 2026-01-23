@@ -4,18 +4,21 @@ using UnityEngine;
 using TMPro;
 
 /// <summary>
-/// Watches M_SimpleHttpServer.LastSavedPhotoPath, loads the latest image from disk,
-/// pads it to match the target submesh's effective aspect (UV bounds + optional tiling),
-/// and applies it to a specific material slot (albedo + emission) on a Renderer.
+/// Polls M_SimpleHttpServer.LastSavedPhotoPath, loads the latest image, optionally pads it to preserve aspect ratio,
+/// then applies it to a specific material slot on a Renderer.
+///
+/// Quest-safe rendering path:
+/// - Uses a "nuclear option" (runtime material instance for the target slot)
+/// - Assigns textures directly (no MaterialPropertyBlock reliance)
+/// - Optionally disables emission to prevent old emissive overlays
 /// </summary>
 public class M_LatestPhotoViewer_Material : MonoBehaviour
 {
     [Header("Target Renderer")]
-    [Tooltip("MeshRenderer/SkinnedMeshRenderer that contains the screen materials.")]
     public Renderer targetRenderer;
 
     [Header("Material Selection")]
-    [Tooltip("Fallback slot index if name lookup is disabled or fails.")]
+    [Tooltip("Fallback slot index if name lookup fails/disabled.")]
     public int fallbackMaterialIndex = 0;
 
     [Tooltip("If enabled, finds the slot by matching material name substring (case-insensitive).")]
@@ -28,8 +31,9 @@ public class M_LatestPhotoViewer_Material : MonoBehaviour
     [Tooltip("Albedo texture property name for the shader. Standard uses _MainTex.")]
     public string albedoProperty = "_MainTex";
 
-    [Tooltip("If true, also write the image to emission so the screen glows (prevents old emission overlay).")]
-    public bool writeEmission = true;
+    [Header("Emission")]
+    [Tooltip("If true, also write the image to emission.")]
+    public bool writeEmission = false;
 
     [Tooltip("Emission color used when writeEmission is enabled.")]
     public Color emissionColor = Color.white;
@@ -51,23 +55,13 @@ public class M_LatestPhotoViewer_Material : MonoBehaviour
     public Color32 marginColor = new Color32(0, 0, 0, 255);
 
     [Header("Polling")]
-    [Tooltip("If enabled, polls M_SimpleHttpServer.LastSavedPhotoPath every frame.")]
     public bool pollFromHttpServer = true;
-
-    [Header("Runtime Apply Mode")]
-    [Tooltip("Uses MaterialPropertyBlock (recommended).")]
-    public bool useMaterialPropertyBlock = true;
-
-    [Tooltip("Force direct material assignment even if MPB is enabled (useful if batching blocks MPB on device).")]
-    public bool forceDirectMaterialSet = false;
 
     [Header("UI (Optional)")]
     public TMP_Text infoText;
 
     [Header("Load Robustness")]
-    [Tooltip("Retries in case the file is still being written when the viewer tries to read it.")]
     public int maxLoadRetries = 5;
-
     public float retryDelaySeconds = 0.05f;
 
     [Header("Debug")]
@@ -81,10 +75,12 @@ public class M_LatestPhotoViewer_Material : MonoBehaviour
     private Texture2D _decodedTexture;
     private Texture2D _paddedTexture;
     private Color32[] _padBuffer;
-    private MaterialPropertyBlock _mpb;
-    private bool _printedSlots;
+
+    // Nuclear option cache
     private Material _runtimeSlotMaterial = null;
     private int _runtimeSlotIndex = -1;
+
+    private bool _printedSlots;
 
     private void Update()
     {
@@ -110,9 +106,6 @@ public class M_LatestPhotoViewer_Material : MonoBehaviour
         _loadCoroutine = StartCoroutine(LoadAndApplyCoroutine(latest));
     }
 
-    /// <summary>
-    /// Manually trigger display from a file path.
-    /// </summary>
     public void DisplayImageFromPath(string path)
     {
         if (string.IsNullOrEmpty(path))
@@ -174,22 +167,31 @@ public class M_LatestPhotoViewer_Material : MonoBehaviour
 
                 if (ok && _decodedTexture.width > 0 && _decodedTexture.height > 0)
                 {
+                    // After LoadImage succeeds
                     Texture2D finalTex = _decodedTexture;
 
+                    // If padding is enabled and we can compute aspect, create a NEW padded texture every time.
+                    // If padding isn't possible, still create a NEW copy texture to force GPU refresh.
                     if (padToTargetAspect)
                     {
-                        float targetAspect = GetEffectiveTargetAspect(targetRenderer, resolvedSlot);
+                        float targetAspect = GetEffectiveTargetAspectSafe(targetRenderer, resolvedSlot);
                         if (targetAspect > 0.0001f)
-                            finalTex = PadToAspect(_decodedTexture, targetAspect, transparentBars, marginColor);
+                            finalTex = PadToAspect_NewTexture(_decodedTexture, targetAspect, transparentBars, marginColor);
+                        else
+                            finalTex = CopyToNewTexture(_decodedTexture);
+                    }
+                    else
+                    {
+                        finalTex = CopyToNewTexture(_decodedTexture);
                     }
 
-                    ApplyToRenderer(targetRenderer, resolvedSlot, finalTex);
+                    ApplyNuclear(targetRenderer, resolvedSlot, finalTex);
 
                     if (infoText != null)
                         infoText.text = $"Displayed: {Path.GetFileName(path)}";
 
                     if (verboseLogging)
-                        Debug.Log($"[PhotoViewer] Applied '{Path.GetFileName(path)}' to slot={resolvedSlot} size={finalTex.width}x{finalTex.height} mpb={(useMaterialPropertyBlock && !forceDirectMaterialSet)}");
+                        Debug.Log($"[PhotoViewer] Displayed '{Path.GetFileName(path)}' slot={resolvedSlot} tex={finalTex.width}x{finalTex.height}");
 
                     _loadCoroutine = null;
                     _currentlyLoadingPath = null;
@@ -229,11 +231,13 @@ public class M_LatestPhotoViewer_Material : MonoBehaviour
                 return i;
         }
 
-        // Fallback
         return Mathf.Clamp(fallbackMaterialIndex, 0, mats.Length - 1);
     }
 
-    private void ApplyToRenderer(Renderer r, int slot, Texture2D tex)
+    /// <summary>
+    /// Quest-safe nuclear apply: ensure the slot uses a runtime material instance and set textures directly.
+    /// </summary>
+    private void ApplyNuclear(Renderer r, int slot, Texture2D tex)
     {
         if (r == null || tex == null)
             return;
@@ -241,16 +245,48 @@ public class M_LatestPhotoViewer_Material : MonoBehaviour
         tex.wrapMode = TextureWrapMode.Clamp;
         tex.filterMode = FilterMode.Bilinear;
 
-        // FORCE MATERIAL INSTANCE (no MPB, no batching)
+        // Always get current instantiated materials array
         var mats = r.materials;
-        if (slot < 0 || slot >= mats.Length)
+        if (mats == null || mats.Length == 0)
             return;
 
-        Material m = mats[slot];
+        slot = Mathf.Clamp(slot, 0, mats.Length - 1);
+        if (mats[slot] == null)
+            return;
+
+        // Ensure we have a runtime material and it is actually attached to THIS renderer slot.
+        // If the renderer's materials got rebuilt/swapped, re-attach our runtime instance.
+        if (_runtimeSlotMaterial == null || _runtimeSlotIndex != slot)
+        {
+            _runtimeSlotIndex = slot;
+            _runtimeSlotMaterial = new Material(mats[slot])
+            {
+                name = mats[slot].name + "_Runtime"
+            };
+
+            mats[slot] = _runtimeSlotMaterial;
+            r.materials = mats;
+
+            if (verboseLogging)
+                Debug.Log($"[PhotoViewer] Created runtime material for slot {slot}: {_runtimeSlotMaterial.name}");
+        }
+        else
+        {
+            // Re-attach if Unity swapped the array/material instance under us
+            if (!ReferenceEquals(mats[slot], _runtimeSlotMaterial))
+            {
+                mats[slot] = _runtimeSlotMaterial;
+                r.materials = mats;
+
+                if (verboseLogging)
+                    Debug.Log($"[PhotoViewer] Re-attached runtime material for slot {slot}: {_runtimeSlotMaterial.name}");
+            }
+        }
+
+        // IMPORTANT: write to the renderer-attached material reference (not a stale cached one)
+        Material m = r.materials[slot];
         if (m == null)
             return;
-
-        // -------- HARD RESET MATERIAL STATE --------
 
         // Albedo
         if (m.HasProperty("_MainTex"))
@@ -259,70 +295,50 @@ public class M_LatestPhotoViewer_Material : MonoBehaviour
         if (!string.IsNullOrEmpty(albedoProperty) && m.HasProperty(albedoProperty))
             m.SetTexture(albedoProperty, tex);
 
+        if (m.HasProperty("_Color"))
+            m.SetColor("_Color", Color.white);
+
         // Emission
-        if (m.HasProperty("_EmissionMap"))
-            m.SetTexture("_EmissionMap", tex);
-
-        if (m.HasProperty("_EmissionColor"))
-            m.SetColor("_EmissionColor", emissionColor);
-
-        // Force keyword state
-        m.EnableKeyword("_EMISSION");
-        m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
-
-        // Kill any leftover junk
-        if (m.HasProperty("_DetailAlbedoMap"))
-            m.SetTexture("_DetailAlbedoMap", null);
-
-        if (m.HasProperty("_DetailNormalMap"))
-            m.SetTexture("_DetailNormalMap", null);
-
-        // Force material refresh
-        m.SetFloat("_Glossiness", m.HasProperty("_Glossiness") ? m.GetFloat("_Glossiness") : 0f);
-    }
-
-    private void SetTexturesOnMaterial(Material mat, Texture2D tex)
-    {
-        if (mat == null || tex == null) return;
-
-        // ---- Albedo ----
-        if (!string.IsNullOrEmpty(albedoProperty) && mat.HasProperty(albedoProperty))
-            mat.SetTexture(albedoProperty, tex);
-        else if (mat.HasProperty("_MainTex"))
-            mat.SetTexture("_MainTex", tex);
-
-        // Standard shader also uses _Color to tint albedo; ensure it's neutral
-        if (mat.HasProperty("_Color"))
-            mat.SetColor("_Color", Color.white);
-
-        // ---- Emission ----
         if (writeEmission)
         {
-            if (mat.HasProperty("_EmissionMap"))
-                mat.SetTexture("_EmissionMap", tex);
+            if (m.HasProperty("_EmissionMap"))
+                m.SetTexture("_EmissionMap", tex);
 
-            if (mat.HasProperty("_EmissionColor"))
-                mat.SetColor("_EmissionColor", emissionColor);
+            if (m.HasProperty("_EmissionColor"))
+                m.SetColor("_EmissionColor", emissionColor);
 
-            mat.EnableKeyword("_EMISSION");
+            m.EnableKeyword("_EMISSION");
+            m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
         }
         else
         {
-            // Force emission OFF so no old texture can "overlay"
-            if (mat.HasProperty("_EmissionColor"))
-                mat.SetColor("_EmissionColor", Color.black);
+            if (m.HasProperty("_EmissionMap"))
+                m.SetTexture("_EmissionMap", null);
 
-            if (mat.HasProperty("_EmissionMap"))
-                mat.SetTexture("_EmissionMap", null);
+            if (m.HasProperty("_EmissionColor"))
+                m.SetColor("_EmissionColor", Color.black);
 
-            mat.DisableKeyword("_EMISSION");
+            m.DisableKeyword("_EMISSION");
+        }
+    }
+
+    private float GetEffectiveTargetAspectSafe(Renderer r, int slot)
+    {
+        try
+        {
+            return GetEffectiveTargetAspect(r, slot);
+        }
+        catch
+        {
+            // Mesh UVs not readable -> fallback
+            return 0f;
         }
     }
 
     private float GetEffectiveTargetAspect(Renderer r, int slot)
     {
-        float uvAspect = GetSubmeshUVAspect(r, slot);
-        if (uvAspect <= 0.0001f) uvAspect = 1f;
+        //float uvAspect = GetSubmeshUVAspect(r, slot);
+        //if (uvAspect <= 0.0001f) uvAspect = 1f;
 
         float tilingRatio = 1f;
         if (includeMaterialTilingInAspect && r != null)
@@ -336,7 +352,8 @@ public class M_LatestPhotoViewer_Material : MonoBehaviour
             }
         }
 
-        return uvAspect * tilingRatio * Mathf.Max(0.0001f, aspectCorrection);
+        //return uvAspect * tilingRatio * Mathf.Max(0.0001f, aspectCorrection);
+        return tilingRatio * Mathf.Max(0.0001f, aspectCorrection);
     }
 
     private float GetSubmeshUVAspect(Renderer r, int slot)
@@ -426,5 +443,60 @@ public class M_LatestPhotoViewer_Material : MonoBehaviour
         _paddedTexture.SetPixels32(_padBuffer);
         _paddedTexture.Apply(false, false);
         return _paddedTexture;
+    }
+
+    private Texture2D CopyToNewTexture(Texture2D src)
+    {
+        // New reference each upload => guaranteed material refresh
+        Texture2D t = new Texture2D(src.width, src.height, TextureFormat.RGBA32, false, false);
+        t.SetPixels32(src.GetPixels32());
+        t.Apply(false, false);
+        t.wrapMode = TextureWrapMode.Clamp;
+        t.filterMode = FilterMode.Bilinear;
+        return t;
+    }
+
+    private Texture2D PadToAspect_NewTexture(Texture2D src, float targetAspect, bool makeBarsTransparent, Color32 barColor)
+    {
+        float srcAspect = (float)src.width / src.height;
+
+        int outW, outH;
+        if (Mathf.Abs(srcAspect - targetAspect) < 0.0005f)
+            return CopyToNewTexture(src);
+
+        if (srcAspect > targetAspect)
+        {
+            outW = src.width;
+            outH = Mathf.CeilToInt(src.width / targetAspect);
+        }
+        else
+        {
+            outH = src.height;
+            outW = Mathf.CeilToInt(src.height * targetAspect);
+        }
+
+        Texture2D outTex = new Texture2D(outW, outH, TextureFormat.RGBA32, false, false);
+
+        Color32 fill = makeBarsTransparent ? new Color32(0, 0, 0, 0) : barColor;
+        Color32[] buffer = new Color32[outW * outH];
+        for (int i = 0; i < buffer.Length; i++) buffer[i] = fill;
+
+        Color32[] srcPixels = src.GetPixels32();
+        int offsetX = (outW - src.width) / 2;
+        int offsetY = (outH - src.height) / 2;
+
+        for (int y = 0; y < src.height; y++)
+        {
+            int srcRow = y * src.width;
+            int dstRow = (y + offsetY) * outW + offsetX;
+            for (int x = 0; x < src.width; x++)
+                buffer[dstRow + x] = srcPixels[srcRow + x];
+        }
+
+        outTex.SetPixels32(buffer);
+        outTex.Apply(false, false);
+        outTex.wrapMode = TextureWrapMode.Clamp;
+        outTex.filterMode = FilterMode.Bilinear;
+        return outTex;
     }
 }

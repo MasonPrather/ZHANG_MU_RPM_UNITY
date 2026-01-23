@@ -2,6 +2,10 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.Networking;
 
+/// <summary>
+/// Simple REST client for posting image bytes to the discovered server.
+/// Upload endpoint: POST /upload-photo (raw jpg bytes)
+/// </summary>
 public class M_RestClient : MonoBehaviour
 {
     private static M_RestClient _instance;
@@ -9,79 +13,73 @@ public class M_RestClient : MonoBehaviour
     {
         get
         {
+            if (_instance != null) return _instance;
+
+            _instance = FindObjectOfType<M_RestClient>();
             if (_instance == null)
             {
-                _instance = FindObjectOfType<M_RestClient>();
-                if (_instance == null)
-                {
-                    var go = new GameObject("M_RestClient");
-                    _instance = go.AddComponent<M_RestClient>();
-                    DontDestroyOnLoad(go);
-                }
-                Debug.Log("[M_RestClient] Instance found/created.");
+                var go = new GameObject("M_RestClient");
+                _instance = go.AddComponent<M_RestClient>();
+                DontDestroyOnLoad(go);
             }
+
             return _instance;
         }
     }
 
-    [Header("Server Settings")]
-    [SerializeField] private string serverIp = "10.0.0.68";  // or whatever your Mac IP is
-    [SerializeField] private int serverPort = 8080;
-
-    public string ServerBaseUrl => $"http://{serverIp}:{serverPort}";
+    public string ServerBaseUrl { get; private set; }
 
     public void SetServer(string ip, int port)
     {
-        serverIp = ip;
-        serverPort = port;
-        Debug.Log($"[M_RestClient] Server set to {ServerBaseUrl}");
+        if (string.IsNullOrEmpty(ip) || port <= 0)
+        {
+            Debug.LogError("[M_RestClient] SetServer called with invalid ip/port.");
+            return;
+        }
+
+        ServerBaseUrl = $"http://{ip}:{port}";
+        Debug.Log($"[M_RestClient] ServerBaseUrl set to {ServerBaseUrl}");
     }
 
-    /// <summary>
-    /// Uploads raw JPEG bytes directly as the HTTP request body.
-    /// NO form, NO multipart, just the image bytes.
-    /// </summary>
-    public IEnumerator UploadPhoto(byte[] imageBytes)
+    public IEnumerator UploadPhoto(byte[] jpgBytes)
     {
-        if (imageBytes == null || imageBytes.Length == 0)
+        if (jpgBytes == null || jpgBytes.Length == 0)
         {
-            Debug.LogError("[M_RestClient] UploadPhoto called with empty imageBytes.");
+            Debug.LogError("[M_RestClient] UploadPhoto called with empty bytes.");
+            yield break;
+        }
+
+        if (string.IsNullOrEmpty(ServerBaseUrl))
+        {
+            Debug.LogError("[M_RestClient] No ServerBaseUrl set; cannot upload.");
             yield break;
         }
 
         string url = $"{ServerBaseUrl}/upload-photo";
-        Debug.Log($"[M_RestClient] UploadPhoto started. Url={url}, bytes={imageBytes.Length}");
 
-        using (UnityWebRequest request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbPOST))
+        using (var req = new UnityWebRequest(url, UnityWebRequest.kHttpVerbPOST))
         {
-            // RAW BODY
-            request.uploadHandler = new UploadHandlerRaw(imageBytes);
-            request.downloadHandler = new DownloadHandlerBuffer();
+            req.uploadHandler = new UploadHandlerRaw(jpgBytes);
+            req.downloadHandler = new DownloadHandlerBuffer();
+            req.SetRequestHeader("Content-Type", "image/jpeg");
 
-            // Tell server what this is
-            request.SetRequestHeader("Content-Type", "image/jpeg");
-
-#if UNITY_2020_2_OR_NEWER
-            request.timeout = 15; // seconds
-#endif
-
-            var op = request.SendWebRequest();
-            yield return op;
+            yield return req.SendWebRequest();
 
 #if UNITY_2020_2_OR_NEWER
-            bool hasError = request.result != UnityWebRequest.Result.Success;
+            bool hasError = req.result != UnityWebRequest.Result.Success;
 #else
-            bool hasError = request.isNetworkError || request.isHttpError;
+            bool hasError = req.isNetworkError || req.isHttpError;
 #endif
 
             if (hasError)
             {
-                Debug.LogError($"[M_RestClient] Request result={request.result}, responseCode={request.responseCode}, error={request.error}");
-                Debug.LogError($"[M_RestClient] Upload failed. Error={request.error}, ResponseCode={request.responseCode}, Body={request.downloadHandler.text}");
+                Debug.LogError($"[M_RestClient] Upload failed. url={url} code={req.responseCode} err={req.error}");
+                if (req.downloadHandler != null)
+                    Debug.LogError($"[M_RestClient] Body={req.downloadHandler.text}");
             }
             else
             {
-                Debug.Log($"[M_RestClient] Upload successful. ResponseCode={request.responseCode}, Body={request.downloadHandler.text}");
+                Debug.Log($"[M_RestClient] Upload OK. code={req.responseCode}");
             }
         }
     }
