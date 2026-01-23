@@ -463,6 +463,11 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 
+# Oculus sample stuff - do NOT track
+Assets/Oculus/Avatar2_SampleAssets/
+Assets/Oculus/LipSync/Plugins/iOS/libOVRLipSync.dylib
+Assets/Oculus/LipSync/Plugins/MacOSX/
+
 ### VisualStudio Patch ###
 # Additional files built by Visual Studio
 
