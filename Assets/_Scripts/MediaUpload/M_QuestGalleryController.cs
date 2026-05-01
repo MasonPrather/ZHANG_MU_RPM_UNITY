@@ -94,15 +94,7 @@ public class M_QuestGalleryController : MonoBehaviour
     private void Awake()
     {
         ConfigureScrollViewport();
-        if (imagePicker == null)
-            imagePicker = GetComponent<ImagePicker>();
-
-        _networkedPhotoSync = GetComponent<M_NetworkedPhotoSync>();
-
-        if (_networkedPhotoSync == null)
-            _networkedPhotoSync = gameObject.AddComponent<M_NetworkedPhotoSync>();
-
-        _networkedPhotoSync.Initialize(photoDisplay);
+        ResolveRuntimeReferences();
         SubscribeImagePicker();
     }
 
@@ -196,6 +188,7 @@ public class M_QuestGalleryController : MonoBehaviour
     public void NotifyExternalImageImported(string filePath, string sourceLabel = "Imported")
     {
         string preferredIdentity = null;
+        ResolveRuntimeReferences();
 
         if (androidBridge != null && !string.IsNullOrWhiteSpace(filePath))
         {
@@ -209,8 +202,7 @@ public class M_QuestGalleryController : MonoBehaviour
 
     private void SubscribeImagePicker()
     {
-        if (imagePicker == null)
-            imagePicker = GetComponent<ImagePicker>();
+        ResolveRuntimeReferences();
 
         if (imagePicker == null)
             return;
@@ -227,6 +219,9 @@ public class M_QuestGalleryController : MonoBehaviour
 
     private void HandleImagePickerPrepared(ImagePicker.PreparedImage image)
     {
+        ResolveRuntimeReferences();
+        ClearSelection();
+
         if (!broadcastNativeGalleryImports)
             return;
 
@@ -280,10 +275,21 @@ public class M_QuestGalleryController : MonoBehaviour
     }
 
     /// <summary>
-    /// UI hook for an Upload button. Uploads the currently selected tile to the display.
+    /// UI hook for a Share/Upload button. Shares the currently selected tile to the display.
     /// </summary>
     public void UploadSelected()
     {
+        ResolveRuntimeReferences();
+
+        if (_selectedItem == null)
+        {
+            if (TrySharePreparedPickerImage())
+                return;
+
+            SetStatus("Select an image first");
+            return;
+        }
+
         if (photoDisplay == null)
         {
             Debug.LogWarning("[M_QuestGalleryController] UploadSelected failed: photoDisplay is not assigned.");
@@ -296,18 +302,20 @@ public class M_QuestGalleryController : MonoBehaviour
             return;
         }
 
-        if (_selectedItem == null)
-        {
-            SetStatus("Select an image first");
-            return;
-        }
-
         if (_networkedPhotoSync != null)
             _networkedPhotoSync.UploadSelectedItem(androidBridge, _selectedItem);
         else
             photoDisplay.DisplayPhoto(androidBridge, _selectedItem);
 
-        SetStatus($"Uploaded: {_selectedItem.fileName}");
+        SetStatus($"Shared: {_selectedItem.fileName}");
+    }
+
+    /// <summary>
+    /// Clearer UI hook name for Share buttons. Kept separate from UploadSelected so old scenes still work.
+    /// </summary>
+    public void ShareSelectedImage()
+    {
+        UploadSelected();
     }
 
     private void QueueGalleryReload(
@@ -461,6 +469,15 @@ public class M_QuestGalleryController : MonoBehaviour
         _spawnedTiles.Clear();
     }
 
+    private void ClearSelection()
+    {
+        if (_selectedTile != null)
+            _selectedTile.SetSelected(false);
+
+        _selectedTile = null;
+        _selectedItem = null;
+    }
+
     private IEnumerator PollPendingSharedImportsCoroutine()
     {
         float waitDuration = Mathf.Max(0.25f, pendingSharedImportPollInterval);
@@ -475,6 +492,8 @@ public class M_QuestGalleryController : MonoBehaviour
 
     private void TryProcessPendingSharedImports()
     {
+        ResolveRuntimeReferences();
+
         if (androidBridge == null)
             return;
 
@@ -548,6 +567,51 @@ public class M_QuestGalleryController : MonoBehaviour
             emptyStateText.gameObject.SetActive(visible);
             emptyStateText.text = message;
         }
+    }
+
+    private void ResolveRuntimeReferences()
+    {
+        if (androidBridge == null)
+            androidBridge = GetComponent<M_QuestGalleryAndroidBridge>();
+
+        if (imagePicker == null)
+            imagePicker = GetComponent<ImagePicker>();
+
+        if (photoDisplay == null)
+        {
+            photoDisplay = GetComponent<M_QuestPhotoDisplay>();
+
+            if (photoDisplay == null)
+                photoDisplay = UnityEngine.Object.FindObjectOfType<M_QuestPhotoDisplay>();
+        }
+
+        if (_networkedPhotoSync == null)
+            _networkedPhotoSync = GetComponent<M_NetworkedPhotoSync>();
+
+        if (_networkedPhotoSync == null)
+            _networkedPhotoSync = gameObject.AddComponent<M_NetworkedPhotoSync>();
+
+        if (_networkedPhotoSync != null)
+            _networkedPhotoSync.Initialize(photoDisplay);
+    }
+
+    private bool TrySharePreparedPickerImage()
+    {
+        if (imagePicker == null || !imagePicker.TryGetPreparedImage(out ImagePicker.PreparedImage preparedImage))
+            return false;
+
+        if (_networkedPhotoSync == null)
+            ResolveRuntimeReferences();
+
+        if (_networkedPhotoSync == null)
+        {
+            Debug.LogWarning("[M_QuestGalleryController] Prepared picker image could not be shared because no M_NetworkedPhotoSync was available.");
+            return false;
+        }
+
+        _networkedPhotoSync.BroadcastPreparedImage(preparedImage);
+        SetStatus($"Shared: {preparedImage.fileName}");
+        return true;
     }
 
     private void ConfigureScrollViewport()

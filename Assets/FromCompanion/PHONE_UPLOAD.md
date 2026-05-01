@@ -24,6 +24,8 @@ The `PhonePhotoUpload` scene also includes `M_PhoneImportHeadsetMode`, which is 
 - The old raw endpoint still works: `POST /upload-photo` with image bytes. By default, legacy raw uploads can skip the pairing code so existing Unity companion clients do not break.
 - Multipart form uploads also work for browser fallback.
 - Imported phone photos are app-owned files, so they remain browseable even if the user denies Quest-wide media/gallery permission.
+- The `Share Image` button routes through `M_QuestGalleryController.ShareSelectedImage`, so the selected grid image is applied to the local shared display and sent through `M_NetworkedPhotoSync`.
+- Shared images are automatically distributed to connected multiplayer users when a spawned owning `XRINetworkPlayer` is available. If no local network player is spawned, the image displays locally and the sync layer logs a broadcast warning.
 - `M_PhoneImportHeadsetMode` restores scene renderers and camera background when its prompt closes. It intentionally does not manage Quest passthrough.
 - This is a local-network prototype. If the router blocks peer-to-peer devices, the phone may not reach the Quest IP.
 - For production outside a lab Wi-Fi network, use the same phone page idea with a backend/R2 session instead of a Quest-hosted local server.

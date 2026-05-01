@@ -443,9 +443,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 7042810410431920601}
-        m_TargetAssemblyTypeName: ImagePicker, Assembly-CSharp
-        m_MethodName: PrepareCurrentImageForUpload
+      - m_Target: {fileID: 841189091437892006}
+        m_TargetAssemblyTypeName: M_QuestGalleryController, Assembly-CSharp
+        m_MethodName: ShareSelectedImage
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
