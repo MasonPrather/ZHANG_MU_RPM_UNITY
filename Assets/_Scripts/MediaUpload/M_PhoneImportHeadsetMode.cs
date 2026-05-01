@@ -8,30 +8,26 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Keeps the phone photo import flow usable without removing the headset.
-/// It shows a large join prompt in VR, enables Quest passthrough when available,
-/// and temporarily clears opaque scene renderers so the user can look down at a physical phone.
+/// It presents a neutral pairing environment and instructions, but does not
+/// enable or disable Quest passthrough. The user controls passthrough through
+/// the headset/system UI when they need to see their physical phone.
 /// </summary>
 public class M_PhoneImportHeadsetMode : MonoBehaviour
 {
     [Header("Flow")]
-    [Tooltip("If true, enter phone import mode as soon as the scene starts.")]
+    [Tooltip("If true, enter phone pairing mode as soon as the scene starts.")]
     public bool activateOnStart = true;
 
-    [Tooltip("If true, hide the phone prompt after the first phone upload is detected.")]
+    [Tooltip("If true, hide the pairing prompt/environment after the first phone upload is detected.")]
     public bool closePromptAfterFirstUpload = true;
 
     [Tooltip("Seconds to keep the prompt visible after the first upload arrives.")]
     public float closeDelayAfterUploadSeconds = 2f;
 
-    [Tooltip("If true, passthrough stays enabled after the prompt closes.")]
-    public bool keepPassthroughAfterUpload = false;
-
     [Header("References")]
     public M_ServerBootstrap serverBootstrap;
     public M_PhoneUploadToDisplay phoneUploadBridge;
     public Camera xrCamera;
-    public OVRManager ovrManager;
-    public OVRPassthroughLayer passthroughLayer;
 
     [Header("UI")]
     [Tooltip("Root object for an existing prompt. If empty, one is generated at runtime.")]
@@ -54,32 +50,48 @@ public class M_PhoneImportHeadsetMode : MonoBehaviour
     [Tooltip("Prompt offset in headset-local meters.")]
     public Vector3 promptOffsetMeters = new Vector3(0f, 0.14f, 0f);
 
-    [Tooltip("If true, place the prompt in front of the headset when import mode starts.")]
+    [Tooltip("If true, place the prompt in front of the headset when pairing mode starts.")]
     public bool recenterPromptOnEnter = true;
 
     [Tooltip("If true, keep the prompt rotated toward the headset while it is visible.")]
     public bool billboardPromptToHeadset = true;
 
-    [Header("Passthrough")]
-    public bool enablePassthrough = true;
+    [Header("Pairing Environment")]
+    [Tooltip("Root object for an existing neutral environment. If empty, a dark sphere is generated at runtime.")]
+    public GameObject environmentRoot;
 
-    [Tooltip("If true, disable regular scene renderers during phone mode so passthrough can be seen.")]
-    public bool hideSceneRenderersDuringPhoneMode = true;
+    [Tooltip("If true, create a dark inside-out sphere when no environment root is assigned.")]
+    public bool createEnvironmentIfMissing = true;
 
-    [Tooltip("Objects that should keep their renderers while phone mode hides the rest of the scene.")]
+    [Tooltip("If true, center the pairing sphere/environment on the headset when pairing mode starts.")]
+    public bool centerEnvironmentOnEnter = true;
+
+    [Tooltip("Radius of the generated pairing sphere.")]
+    public float environmentRadiusMeters = 8f;
+
+    [Tooltip("Color used by the generated sphere and camera background.")]
+    public Color environmentColor = new Color(0.025f, 0.027f, 0.03f, 1f);
+
+    [Tooltip("If true, set the camera clear color to the environment color while pairing mode is active.")]
+    public bool setCameraBackgroundDuringPairing = true;
+
+    [Tooltip("If true, temporarily hide normal scene renderers so the user starts in the pairing environment.")]
+    public bool isolateSceneDuringPairing = true;
+
+    [Tooltip("Objects that should keep their renderers while pairing mode hides the rest of the scene.")]
     public GameObject[] rendererRootsToKeepVisible;
 
     [Header("Debug")]
     public bool verboseLogging = true;
 
+    private const int SphereSegments = 48;
+    private const int SphereRings = 24;
+
     private readonly List<RendererState> _hiddenRenderers = new List<RendererState>();
-    private bool _isPhoneModeActive;
+    private bool _isPairingModeActive;
     private bool _createdPrompt;
-    private bool _previousManagerPassthroughEnabled;
-    private bool _previousBoundarySuppressed;
-    private bool _previousPassthroughLayerEnabled;
-    private bool _previousPassthroughLayerHidden;
-    private float _previousPassthroughOpacity = 1f;
+    private bool _createdEnvironment;
+    private bool _changedCameraBackground;
     private CameraClearFlags _previousCameraClearFlags;
     private Color _previousCameraBackgroundColor;
     private string _lastObservedUploadPath;
@@ -111,7 +123,7 @@ public class M_PhoneImportHeadsetMode : MonoBehaviour
     {
         UnsubscribeServerEvents();
 
-        if (_isPhoneModeActive)
+        if (_isPairingModeActive)
             ExitPhoneImportMode();
     }
 
@@ -126,6 +138,7 @@ public class M_PhoneImportHeadsetMode : MonoBehaviour
 
         ResolveReferences();
         SubscribeServerEvents();
+        EnsureEnvironment();
         EnsurePrompt();
         RefreshPromptText();
 
@@ -137,7 +150,7 @@ public class M_PhoneImportHeadsetMode : MonoBehaviour
 
     private void Update()
     {
-        if (!_isPhoneModeActive || !closePromptAfterFirstUpload)
+        if (!_isPairingModeActive || !closePromptAfterFirstUpload)
             return;
 
         string uploadPath = M_SimpleHttpServer.LastSavedPhotoPath;
@@ -158,7 +171,7 @@ public class M_PhoneImportHeadsetMode : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (!_isPhoneModeActive || !billboardPromptToHeadset || promptRoot == null)
+        if (!_isPairingModeActive || !billboardPromptToHeadset || promptRoot == null)
             return;
 
         ResolveCamera();
@@ -172,39 +185,46 @@ public class M_PhoneImportHeadsetMode : MonoBehaviour
 
     public void EnterPhoneImportMode()
     {
-        if (_isPhoneModeActive)
+        if (_isPairingModeActive)
         {
             RefreshPromptText();
             return;
         }
 
         ResolveReferences();
+        EnsureEnvironment();
         EnsurePrompt();
 
-        _isPhoneModeActive = true;
+        _isPairingModeActive = true;
+
+        if (environmentRoot != null)
+            environmentRoot.SetActive(true);
 
         if (promptRoot != null)
             promptRoot.SetActive(true);
+
+        if (centerEnvironmentOnEnter)
+            PlaceEnvironmentAroundHeadset();
 
         if (recenterPromptOnEnter)
             PlacePromptInFrontOfHeadset();
 
         RefreshPromptText();
-        ApplyPassthroughMode();
+        ApplyCameraBackground();
         HideSceneRenderers();
 
-        SetStatus("Look down through passthrough and use your phone.");
+        SetStatus("Waiting for phone upload. Use headset passthrough if you need to see your phone.");
 
         if (verboseLogging)
-            Debug.Log("[M_PhoneImportHeadsetMode] Phone import mode entered.");
+            Debug.Log("[M_PhoneImportHeadsetMode] Phone pairing mode entered.");
     }
 
     public void ExitPhoneImportMode()
     {
-        if (!_isPhoneModeActive)
+        if (!_isPairingModeActive)
             return;
 
-        _isPhoneModeActive = false;
+        _isPairingModeActive = false;
 
         if (_closePromptCoroutine != null)
         {
@@ -213,24 +233,26 @@ public class M_PhoneImportHeadsetMode : MonoBehaviour
         }
 
         RestoreSceneRenderers();
-
-        if (!keepPassthroughAfterUpload)
-            RestorePassthroughMode();
+        RestoreCameraBackground();
 
         if (promptRoot != null)
             promptRoot.SetActive(false);
 
+        if (environmentRoot != null)
+            environmentRoot.SetActive(false);
+
         if (verboseLogging)
-            Debug.Log("[M_PhoneImportHeadsetMode] Phone import mode exited.");
+            Debug.Log("[M_PhoneImportHeadsetMode] Phone pairing mode exited.");
     }
 
     public void RefreshPromptText()
     {
         ResolveReferences();
+        EnsureEnvironment();
         EnsurePrompt();
 
         if (titleText != null)
-            titleText.text = "Phone Import";
+            titleText.text = "Pair Your Phone";
 
         if (instructionsText != null)
             instructionsText.text = BuildHeadsetInstructions();
@@ -252,14 +274,6 @@ public class M_PhoneImportHeadsetMode : MonoBehaviour
             phoneUploadBridge = UnityEngine.Object.FindObjectOfType<M_PhoneUploadToDisplay>();
 
         ResolveCamera();
-
-        if (ovrManager == null)
-            ovrManager = OVRManager.instance != null
-                ? OVRManager.instance
-                : UnityEngine.Object.FindObjectOfType<OVRManager>();
-
-        if (passthroughLayer == null)
-            passthroughLayer = UnityEngine.Object.FindObjectOfType<OVRPassthroughLayer>();
     }
 
     private void ResolveCamera()
@@ -267,10 +281,19 @@ public class M_PhoneImportHeadsetMode : MonoBehaviour
         if (xrCamera != null)
             return;
 
-        xrCamera = OVRManager.FindMainCamera();
+        xrCamera = Camera.main;
+        if (xrCamera != null)
+            return;
 
-        if (xrCamera == null)
-            xrCamera = Camera.main;
+        Camera[] cameras = UnityEngine.Object.FindObjectsOfType<Camera>();
+        for (int i = 0; i < cameras.Length; i++)
+        {
+            if (cameras[i] == null || !cameras[i].isActiveAndEnabled)
+                continue;
+
+            xrCamera = cameras[i];
+            return;
+        }
     }
 
     private void SubscribeServerEvents()
@@ -296,13 +319,18 @@ public class M_PhoneImportHeadsetMode : MonoBehaviour
     private string BuildHeadsetInstructions()
     {
         if (serverBootstrap == null)
-            return "Starting phone import...\n\nKeep the phone and headset on the same Wi-Fi network.";
+        {
+            return "Starting phone import...\n\n" +
+                   "Turn on headset passthrough if you need to see your phone.\n" +
+                   "Keep the phone and headset on the same Wi-Fi network.";
+        }
 
         string[] urls = serverBootstrap.PublishedUploadUrls;
         string code = serverBootstrap.EffectivePairingCode;
 
         StringBuilder sb = new StringBuilder();
-        sb.AppendLine("On your phone, open:");
+        sb.AppendLine("Turn on Quest passthrough if you need to see your phone.");
+        sb.AppendLine("Then open on the phone:");
 
         if (urls == null || urls.Length == 0)
         {
@@ -323,7 +351,7 @@ public class M_PhoneImportHeadsetMode : MonoBehaviour
         }
 
         sb.AppendLine();
-        sb.Append("Choose photos on the phone. They will appear here.");
+        sb.Append("Choose photos in the browser. They will appear here.");
         return sb.ToString();
     }
 
@@ -378,20 +406,23 @@ public class M_PhoneImportHeadsetMode : MonoBehaviour
         canvasObject.AddComponent<GraphicRaycaster>();
 
         RectTransform canvasRect = canvasObject.GetComponent<RectTransform>();
-        canvasRect.sizeDelta = new Vector2(980f, 640f);
+        canvasRect.sizeDelta = new Vector2(1040f, 700f);
         canvasRect.localScale = Vector3.one * 0.0018f;
 
         Image background = canvasObject.AddComponent<Image>();
-        background.color = new Color(0.03f, 0.035f, 0.04f, 0.92f);
+        background.color = new Color(0.02f, 0.024f, 0.028f, 0.94f);
 
-        titleText = CreateText(canvasRect, "Title", new Vector2(0f, 218f), new Vector2(880f, 92f), 58f, FontStyles.Bold);
-        instructionsText = CreateText(canvasRect, "Instructions", new Vector2(0f, -10f), new Vector2(880f, 350f), 38f, FontStyles.Normal);
-        statusText = CreateText(canvasRect, "Status", new Vector2(0f, -256f), new Vector2(880f, 62f), 26f, FontStyles.Italic);
+        titleText = CreateText(canvasRect, "Title", new Vector2(0f, 248f), new Vector2(920f, 92f), 58f, FontStyles.Bold);
+        instructionsText = CreateText(canvasRect, "Instructions", new Vector2(0f, 4f), new Vector2(920f, 400f), 34f, FontStyles.Normal);
+        statusText = CreateText(canvasRect, "Status", new Vector2(0f, -286f), new Vector2(920f, 62f), 24f, FontStyles.Italic);
 
         promptRoot = canvasObject;
         _createdPrompt = true;
 
         PlacePromptInFrontOfHeadset();
+
+        if (!_isPairingModeActive && !activateOnStart)
+            canvasObject.SetActive(false);
     }
 
     private static TMP_Text CreateText(RectTransform parent, string name, Vector2 position, Vector2 size, float fontSize, FontStyles style)
@@ -417,6 +448,123 @@ public class M_PhoneImportHeadsetMode : MonoBehaviour
         return text;
     }
 
+    private void EnsureEnvironment()
+    {
+        if (environmentRoot != null || !createEnvironmentIfMissing || _createdEnvironment)
+            return;
+
+        GameObject sphereObject = new GameObject("PhoneImportPairingEnvironment");
+        MeshFilter meshFilter = sphereObject.AddComponent<MeshFilter>();
+        MeshRenderer meshRenderer = sphereObject.AddComponent<MeshRenderer>();
+
+        meshFilter.sharedMesh = CreateDoubleSidedSphereMesh(Mathf.Max(1f, environmentRadiusMeters), SphereSegments, SphereRings);
+        meshRenderer.sharedMaterial = CreateEnvironmentMaterial(environmentColor);
+
+        environmentRoot = sphereObject;
+        _createdEnvironment = true;
+
+        PlaceEnvironmentAroundHeadset();
+
+        if (!_isPairingModeActive && !activateOnStart)
+            sphereObject.SetActive(false);
+    }
+
+    private static Mesh CreateDoubleSidedSphereMesh(float radius, int segments, int rings)
+    {
+        int safeSegments = Mathf.Max(8, segments);
+        int safeRings = Mathf.Max(4, rings);
+
+        List<Vector3> vertices = new List<Vector3>((safeSegments + 1) * (safeRings + 1));
+        List<int> triangles = new List<int>(safeSegments * safeRings * 12);
+
+        for (int ring = 0; ring <= safeRings; ring++)
+        {
+            float v = ring / (float)safeRings;
+            float theta = v * Mathf.PI;
+            float sinTheta = Mathf.Sin(theta);
+            float cosTheta = Mathf.Cos(theta);
+
+            for (int segment = 0; segment <= safeSegments; segment++)
+            {
+                float u = segment / (float)safeSegments;
+                float phi = u * Mathf.PI * 2f;
+                float sinPhi = Mathf.Sin(phi);
+                float cosPhi = Mathf.Cos(phi);
+
+                vertices.Add(new Vector3(
+                    sinTheta * cosPhi * radius,
+                    cosTheta * radius,
+                    sinTheta * sinPhi * radius));
+            }
+        }
+
+        for (int ring = 0; ring < safeRings; ring++)
+        {
+            for (int segment = 0; segment < safeSegments; segment++)
+            {
+                int a = ring * (safeSegments + 1) + segment;
+                int b = a + 1;
+                int c = a + safeSegments + 1;
+                int d = c + 1;
+
+                AddDoubleSidedTriangle(triangles, a, c, b);
+                AddDoubleSidedTriangle(triangles, b, c, d);
+            }
+        }
+
+        Mesh mesh = new Mesh();
+        mesh.name = "PhoneImportPairingSphere";
+        mesh.SetVertices(vertices);
+        mesh.SetTriangles(triangles, 0);
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        return mesh;
+    }
+
+    private static void AddDoubleSidedTriangle(List<int> triangles, int a, int b, int c)
+    {
+        triangles.Add(a);
+        triangles.Add(b);
+        triangles.Add(c);
+        triangles.Add(c);
+        triangles.Add(b);
+        triangles.Add(a);
+    }
+
+    private static Material CreateEnvironmentMaterial(Color color)
+    {
+        Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
+        if (shader == null)
+            shader = Shader.Find("Unlit/Color");
+
+        if (shader == null)
+            shader = Shader.Find("Standard");
+
+        Material material = new Material(shader);
+        material.name = "PhoneImportPairingEnvironment";
+
+        if (material.HasProperty("_BaseColor"))
+            material.SetColor("_BaseColor", color);
+
+        if (material.HasProperty("_Color"))
+            material.SetColor("_Color", color);
+
+        return material;
+    }
+
+    private void PlaceEnvironmentAroundHeadset()
+    {
+        if (environmentRoot == null)
+            return;
+
+        ResolveCamera();
+        if (xrCamera == null)
+            return;
+
+        environmentRoot.transform.position = xrCamera.transform.position;
+        environmentRoot.transform.rotation = Quaternion.identity;
+    }
+
     private void PlacePromptInFrontOfHeadset()
     {
         if (promptRoot == null)
@@ -432,87 +580,36 @@ public class M_PhoneImportHeadsetMode : MonoBehaviour
         promptRoot.transform.rotation = Quaternion.LookRotation(promptRoot.transform.position - xrCamera.transform.position, Vector3.up);
     }
 
-    private void ApplyPassthroughMode()
+    private void ApplyCameraBackground()
     {
-        if (!enablePassthrough)
+        if (!setCameraBackgroundDuringPairing)
             return;
 
-        ResolveReferences();
-
-        if (ovrManager == null)
-        {
-            Debug.LogWarning("[M_PhoneImportHeadsetMode] No OVRManager found; passthrough prompt will still work without passthrough.");
+        ResolveCamera();
+        if (xrCamera == null || _changedCameraBackground)
             return;
-        }
 
-        _previousManagerPassthroughEnabled = ovrManager.isInsightPassthroughEnabled;
-        _previousBoundarySuppressed = ovrManager.shouldBoundaryVisibilityBeSuppressed;
+        _previousCameraClearFlags = xrCamera.clearFlags;
+        _previousCameraBackgroundColor = xrCamera.backgroundColor;
+        _changedCameraBackground = true;
 
-        ovrManager.isInsightPassthroughEnabled = true;
-        ovrManager.shouldBoundaryVisibilityBeSuppressed = false;
-
-        EnsurePassthroughLayer();
-
-        if (passthroughLayer != null)
-        {
-            _previousPassthroughLayerEnabled = passthroughLayer.enabled;
-            _previousPassthroughLayerHidden = passthroughLayer.hidden;
-            _previousPassthroughOpacity = passthroughLayer.textureOpacity;
-
-            passthroughLayer.overlayType = OVROverlay.OverlayType.Underlay;
-            passthroughLayer.textureOpacity = 1f;
-            passthroughLayer.hidden = false;
-            passthroughLayer.enabled = true;
-        }
-
-        if (xrCamera != null)
-        {
-            _previousCameraClearFlags = xrCamera.clearFlags;
-            _previousCameraBackgroundColor = xrCamera.backgroundColor;
-            xrCamera.clearFlags = CameraClearFlags.SolidColor;
-            xrCamera.backgroundColor = new Color(0f, 0f, 0f, 0f);
-        }
+        xrCamera.clearFlags = CameraClearFlags.SolidColor;
+        xrCamera.backgroundColor = environmentColor;
     }
 
-    private void RestorePassthroughMode()
+    private void RestoreCameraBackground()
     {
-        if (!enablePassthrough)
+        if (!_changedCameraBackground || xrCamera == null)
             return;
 
-        if (passthroughLayer != null)
-        {
-            passthroughLayer.textureOpacity = _previousPassthroughOpacity;
-            passthroughLayer.hidden = _previousPassthroughLayerHidden;
-            passthroughLayer.enabled = _previousPassthroughLayerEnabled;
-        }
-
-        if (ovrManager != null)
-        {
-            ovrManager.isInsightPassthroughEnabled = _previousManagerPassthroughEnabled;
-            ovrManager.shouldBoundaryVisibilityBeSuppressed = _previousBoundarySuppressed;
-        }
-
-        if (xrCamera != null)
-        {
-            xrCamera.clearFlags = _previousCameraClearFlags;
-            xrCamera.backgroundColor = _previousCameraBackgroundColor;
-        }
-    }
-
-    private void EnsurePassthroughLayer()
-    {
-        if (passthroughLayer != null)
-            return;
-
-        GameObject target = ovrManager != null ? ovrManager.gameObject : gameObject;
-        passthroughLayer = target.AddComponent<OVRPassthroughLayer>();
-        passthroughLayer.overlayType = OVROverlay.OverlayType.Underlay;
-        passthroughLayer.textureOpacity = 1f;
+        xrCamera.clearFlags = _previousCameraClearFlags;
+        xrCamera.backgroundColor = _previousCameraBackgroundColor;
+        _changedCameraBackground = false;
     }
 
     private void HideSceneRenderers()
     {
-        if (!hideSceneRenderersDuringPhoneMode || _hiddenRenderers.Count > 0)
+        if (!isolateSceneDuringPairing || _hiddenRenderers.Count > 0)
             return;
 
         Renderer[] renderers = UnityEngine.Object.FindObjectsOfType<Renderer>(true);
@@ -552,6 +649,9 @@ public class M_PhoneImportHeadsetMode : MonoBehaviour
         Transform rendererTransform = renderer.transform;
 
         if (promptRoot != null && rendererTransform.IsChildOf(promptRoot.transform))
+            return true;
+
+        if (environmentRoot != null && rendererTransform.IsChildOf(environmentRoot.transform))
             return true;
 
         if (rendererRootsToKeepVisible != null)

@@ -7336,12 +7336,9 @@ MonoBehaviour:
   activateOnStart: 1
   closePromptAfterFirstUpload: 1
   closeDelayAfterUploadSeconds: 2
-  keepPassthroughAfterUpload: 0
   serverBootstrap: {fileID: 920100000000000003}
   phoneUploadBridge: {fileID: 920100000000000004}
   xrCamera: {fileID: 0}
-  ovrManager: {fileID: 0}
-  passthroughLayer: {fileID: 0}
   promptRoot: {fileID: 0}
   titleText: {fileID: 0}
   instructionsText: {fileID: 0}
@@ -7352,8 +7349,13 @@ MonoBehaviour:
   promptOffsetMeters: {x: 0, y: 0.14, z: 0}
   recenterPromptOnEnter: 1
   billboardPromptToHeadset: 1
-  enablePassthrough: 1
-  hideSceneRenderersDuringPhoneMode: 1
+  environmentRoot: {fileID: 0}
+  createEnvironmentIfMissing: 1
+  centerEnvironmentOnEnter: 1
+  environmentRadiusMeters: 8
+  environmentColor: {r: 0.025, g: 0.027, b: 0.03, a: 1}
+  setCameraBackgroundDuringPairing: 1
+  isolateSceneDuringPairing: 1
   rendererRootsToKeepVisible: []
   verboseLogging: 1
 --- !u!1001 &1188042902095879605
