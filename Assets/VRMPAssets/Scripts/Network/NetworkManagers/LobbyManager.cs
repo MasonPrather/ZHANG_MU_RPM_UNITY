@@ -490,8 +490,8 @@ namespace XRMultiplayer
 
         public static bool CanJoinLobby(Lobby lobby)
         {
-            return (XRINetworkGameManager.Instance.lobbyManager.connectedLobby == null) ||
-            (XRINetworkGameManager.Instance.lobbyManager.connectedLobby != null && lobby.Id != XRINetworkGameManager.Instance.lobbyManager.connectedLobby.Id);
+            return (XRINetworkGameManager.Instance.sessionManager.currentSession == null) ||
+            (XRINetworkGameManager.Instance.sessionManager.currentSession != null && lobby.Id != XRINetworkGameManager.Instance.sessionManager.currentSession.Id);
         }
     }
 }

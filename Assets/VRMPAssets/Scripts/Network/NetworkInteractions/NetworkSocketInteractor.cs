@@ -1,7 +1,8 @@
 using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
-
+using UnityEngine.XR.Interaction.Toolkit.Interactables;
+using UnityEngine.XR.Interaction.Toolkit.Interactors;
 
 namespace XRMultiplayer
 {
@@ -9,13 +10,13 @@ namespace XRMultiplayer
     /// NetworkSocketInteractor class is responsible for synchronizing the
     /// <see cref="XRSocketInteractor"/> functionality over the network.
     /// </summary>
-    [RequireComponent(typeof(UnityEngine.XR.Interaction.Toolkit.Interactors.XRSocketInteractor))]
+    [RequireComponent(typeof(XRSocketInteractor))]
     public class NetworkSocketInteractor : NetworkBehaviour
     {
         /// <summary>
         /// Socket Interactor to use.
         /// </summary>
-        UnityEngine.XR.Interaction.Toolkit.Interactors.XRSocketInteractor m_SocketInteractor;
+        XRSocketInteractor m_SocketInteractor;
 
         /// <summary>
         /// Coroutine used to disable the <see cref="XRSocketInteractor"/> component on Hover Exit across the network.
@@ -43,19 +44,22 @@ namespace XRMultiplayer
         public override void OnNetworkDespawn()
         {
             base.OnNetworkDespawn();
-            /*
-            UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable grabInteractable = m_SocketInteractor.GetOldestInteractableSelected() as UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable;
+
+            if (m_SocketInteractor == null)
+                return;
+
+            var grabInteractable = m_SocketInteractor.GetOldestInteractableSelected() as XRGrabInteractable;
             m_SocketInteractor.enabled = false;
-            if (grabInteractable != null)
-            {
-                NetworkPhysicsInteractable networkInteractable = grabInteractable.GetComponent<NetworkPhysicsInteractable>();
-                if (networkInteractable != null)
-                {
-                    networkInteractable.ResetObject();
-                    networkInteractable.ResetObjectPhysics();
-                }
-            }
-            */
+
+            if (grabInteractable == null)
+                return;
+
+            var networkInteractable = grabInteractable.GetComponent<NetworkPhysicsInteractable>();
+            if (networkInteractable == null)
+                return;
+
+            networkInteractable.ResetObject();
+            networkInteractable.ResetObjectPhysics();
         }
 
         /// <summary>

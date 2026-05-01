@@ -478,15 +478,17 @@ MonoBehaviour:
   m_lineSpacingMax: 0
   m_paragraphSpacing: 0
   m_charWidthMaxAdj: 0
-  m_enableWordWrapping: 0
+  m_TextWrappingMode: 0
   m_wordWrappingRatios: 0.4
   m_overflowMode: 0
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 1
+  m_ActiveFontFeatures: 00000000
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
+  m_EmojiFallbackSupport: 1
   m_parseCtrlCharacters: 1
   m_isOrthographic: 1
   m_isCullingEnabled: 0
@@ -602,6 +604,9 @@ SkinnedMeshRenderer:
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 3
   m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -646,10 +651,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1208358183624930141}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 10
-  m_Drag: 10
-  m_AngularDrag: 0.05
+  m_LinearDamping: 10
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -862,8 +867,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 1437773586
+  GlobalObjectIdHash: 3456638180
   InScenePlacedSourceGlobalObjectIdHash: 3456638180
+  DeferredDespawnTick: 0
+  Ownership: 3
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
   ActiveSceneSynchronization: 0
@@ -871,6 +878,8 @@ MonoBehaviour:
   SpawnWithObservers: 1
   DontDestroyWithOwner: 0
   AutoObjectParentSync: 0
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
 --- !u!114 &258678649405747614
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -883,6 +892,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 25f7d6f3d19b0524d9be4bc50efbc19a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
+  NetworkTransformExpanded: 0
+  AutoOwnerAuthorityTickOffset: 1
+  PositionInterpolationType: 0
+  RotationInterpolationType: 0
+  ScaleInterpolationType: 0
+  PositionLerpSmoothing: 1
+  PositionMaxInterpolationTime: 0.1
+  RotationLerpSmoothing: 1
+  RotationMaxInterpolationTime: 0.1
+  ScaleLerpSmoothing: 1
+  ScaleMaxInterpolationTime: 0.1
+  AuthorityMode: 0
+  TickSyncChildren: 0
   UseUnreliableDeltas: 1
   SyncPositionX: 1
   SyncPositionY: 1
@@ -900,6 +923,7 @@ MonoBehaviour:
   UseQuaternionCompression: 0
   UseHalfFloatPrecision: 0
   InLocalSpace: 0
+  SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
   isServerAuthoritative: 0
@@ -915,6 +939,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f6c0be61502bb534f922ebb746851216, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
+  NetworkRigidbodyBaseExpanded: 0
+  UseRigidBodyForMotion: 0
+  AutoUpdateKinematicState: 1
+  AutoSetKinematicOnDespawn: 1
 --- !u!114 &411204276284704474
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -927,6 +956,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 98ee6bff869e2994a9693cb00d641e22, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!114 &1966352244489577769
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -939,9 +969,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: eb1cca572c123384bbcd5da9749cf9b1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
   m_AllowOverrideOwnership: 0
+  m_InteractionCheckTime: 2
   m_IgnoreSocketSelectedCallback: 1
   m_ResetObjectOnDisconnect: 1
+  m_RelinquishOwnershipAfterTime: 1
+  m_RelinquishOwnershipTime: 5
   m_UseInteractingChangedEvent: 1
   OnInteractingChanged:
     m_PersistentCalls:
@@ -995,6 +1029,9 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FoldoutValues: 010101
+  m_AllowCollisionOwnershipExchange: 1
+  m_MinExchangeVelocityMagitude: 0.025
+  spawnLocked: 1
 --- !u!1 &1580451894062497751
 GameObject:
   m_ObjectHideFlags: 0
@@ -1910,6 +1947,7 @@ AudioSource:
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
+  m_Resource: {fileID: 0}
   m_PlayOnAwake: 1
   m_Volume: 1
   m_Pitch: 1
@@ -2496,15 +2534,17 @@ MonoBehaviour:
   m_lineSpacingMax: 0
   m_paragraphSpacing: 0
   m_charWidthMaxAdj: 0
-  m_enableWordWrapping: 1
+  m_TextWrappingMode: 1
   m_wordWrappingRatios: 0.4
   m_overflowMode: 0
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
+  m_ActiveFontFeatures: 00000000
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
+  m_EmojiFallbackSupport: 1
   m_parseCtrlCharacters: 1
   m_isOrthographic: 1
   m_isCullingEnabled: 0
@@ -3233,6 +3273,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3673f01027db6384abcf3934934e5a4a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
   m_BroadcastValueOnJoin: 0
 --- !u!114 &5953293822445311553
 MonoBehaviour:
@@ -3246,8 +3287,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 1437773586
+  GlobalObjectIdHash: 2081618284
   InScenePlacedSourceGlobalObjectIdHash: 3456638180
+  DeferredDespawnTick: 0
+  Ownership: 1
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
   ActiveSceneSynchronization: 0
@@ -3255,6 +3298,8 @@ MonoBehaviour:
   SpawnWithObservers: 1
   DontDestroyWithOwner: 0
   AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
 --- !u!114 &3520695998163084300 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 3635732519327811138, guid: 2e3d8d2dd3e0841019804406f08f8ffc,
@@ -3529,6 +3574,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5a5524c997ae7af4780b0aaa31b8ccc7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
   m_BroadcastValueOnJoin: 0
   m_ResetValueOnDespawn: 1
 --- !u!114 &3671857059714027102
@@ -3543,8 +3589,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 1437773586
+  GlobalObjectIdHash: 664757187
   InScenePlacedSourceGlobalObjectIdHash: 3456638180
+  DeferredDespawnTick: 0
+  Ownership: 3
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
   ActiveSceneSynchronization: 0
@@ -3552,6 +3600,8 @@ MonoBehaviour:
   SpawnWithObservers: 1
   DontDestroyWithOwner: 0
   AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
 --- !u!114 &4964279143189340574 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 7081840893373687799, guid: ff51b3a439d574c9fa4552bee28f6c65,
@@ -3974,7 +4024,7 @@ PrefabInstance:
         type: 3}
       propertyPath: m_audioClip
       value: 
-      objectReference: {fileID: 8300000, guid: 4aa5e83ae912c46409c45fc3f4f5cfe4, type: 3}
+      objectReference: {fileID: 0}
     - target: {fileID: 9192653336013124638, guid: 6c1157b49176044cdb2937fc8a04ce7e,
         type: 3}
       propertyPath: OutputAudioMixerGroup
@@ -4036,6 +4086,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 65eb984d014f1934da0f38f32923b9e8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
   m_BroadcastValueOnJoin: 0
 --- !u!114 &7027358489856385536
 MonoBehaviour:
@@ -4049,8 +4100,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 1437773586
+  GlobalObjectIdHash: 3668252187
   InScenePlacedSourceGlobalObjectIdHash: 3456638180
+  DeferredDespawnTick: 0
+  Ownership: 1
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
   ActiveSceneSynchronization: 0
@@ -4058,6 +4111,8 @@ MonoBehaviour:
   SpawnWithObservers: 1
   DontDestroyWithOwner: 0
   AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
 --- !u!224 &4019709565067057123 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 6262935102578480880, guid: 6c1157b49176044cdb2937fc8a04ce7e,

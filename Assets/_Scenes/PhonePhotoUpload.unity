@@ -3184,8 +3184,20 @@ PrefabInstance:
       value: 210
       objectReference: {fileID: 0}
     - target: {fileID: 3098676403934798755, guid: e6f54961ea04a4cf9b95298a7ae74c10, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 690
+      objectReference: {fileID: 0}
+    - target: {fileID: 3098676403934798755, guid: e6f54961ea04a4cf9b95298a7ae74c10, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -326
+      value: -381
+      objectReference: {fileID: 0}
+    - target: {fileID: 3176473828054981768, guid: e6f54961ea04a4cf9b95298a7ae74c10, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3176473828054981768, guid: e6f54961ea04a4cf9b95298a7ae74c10, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3370396089483472131, guid: e6f54961ea04a4cf9b95298a7ae74c10, type: 3}
       propertyPath: m_AnchoredPosition.y
@@ -3194,6 +3206,10 @@ PrefabInstance:
     - target: {fileID: 4191720837311098073, guid: e6f54961ea04a4cf9b95298a7ae74c10, type: 3}
       propertyPath: m_Layer
       value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4191720837311098073, guid: e6f54961ea04a4cf9b95298a7ae74c10, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4285292166269161922, guid: e6f54961ea04a4cf9b95298a7ae74c10, type: 3}
       propertyPath: maxItems
@@ -3255,13 +3271,21 @@ PrefabInstance:
       propertyPath: m_Layer
       value: 5
       objectReference: {fileID: 0}
+    - target: {fileID: 7042810410431920601, guid: e6f54961ea04a4cf9b95298a7ae74c10, type: 3}
+      propertyPath: jpegQuality
+      value: 70
+      objectReference: {fileID: 0}
+    - target: {fileID: 7042810410431920601, guid: e6f54961ea04a4cf9b95298a7ae74c10, type: 3}
+      propertyPath: generateMipmaps
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 7500401169132665118, guid: e6f54961ea04a4cf9b95298a7ae74c10, type: 3}
       propertyPath: m_Layer
       value: 5
       objectReference: {fileID: 0}
     - target: {fileID: 7500401169132665118, guid: e6f54961ea04a4cf9b95298a7ae74c10, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7700063387239312530, guid: e6f54961ea04a4cf9b95298a7ae74c10, type: 3}
       propertyPath: m_Layer
@@ -3293,7 +3317,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8953705759906926297, guid: e6f54961ea04a4cf9b95298a7ae74c10, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 60
+      value: 120
+      objectReference: {fileID: 0}
+    - target: {fileID: 9034411601487145607, guid: e6f54961ea04a4cf9b95298a7ae74c10, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -7283,6 +7311,9 @@ MonoBehaviour:
   autoFindPhotoDisplay: 1
   statusText: {fileID: 0}
   autoFindStatusText: 1
+  galleryController: {fileID: 0}
+  autoFindGalleryController: 1
+  refreshGalleryOnPhoneUpload: 1
   networkedPhotoSync: {fileID: 0}
   autoFindNetworkedPhotoSync: 1
   broadcastUploadsToConnectedUsers: 1
@@ -7300,8 +7331,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dc231f652c484c9cb1ac07b848070827, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   activateOnStart: 1
   closePromptAfterFirstUpload: 1
   closeDelayAfterUploadSeconds: 2

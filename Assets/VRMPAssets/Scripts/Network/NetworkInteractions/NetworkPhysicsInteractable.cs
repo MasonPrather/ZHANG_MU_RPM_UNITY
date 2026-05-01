@@ -2,6 +2,8 @@ using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.XR.Interaction.Toolkit.Interactables;
+using UnityEngine.XR.Interaction.Toolkit.Interactors;
 
 namespace XRMultiplayer
 {
@@ -116,9 +118,11 @@ namespace XRMultiplayer
             if (IsOwner)
             {
                 m_LockedOnSpawn.Value = spawnLocked;
-                m_Rigidbody.constraints = spawnLocked ? RigidbodyConstraints.FreezeAll : RigidbodyConstraints.None;
             }
 
+            m_Rigidbody.constraints = m_LockedOnSpawn.Value ? RigidbodyConstraints.FreezeAll : RigidbodyConstraints.None;
+
+            m_LockedOnSpawn.OnValueChanged += OnLockedChanged;
             m_ClientNetworkTransform.enabled = syncSelect;
         }
 
@@ -130,6 +134,8 @@ namespace XRMultiplayer
             {
                 ResetObjectPhysics();
             }
+
+            m_LockedOnSpawn.OnValueChanged -= OnLockedChanged;
         }
 
         /// <inheritdoc/>
@@ -145,6 +151,18 @@ namespace XRMultiplayer
             {
                 m_Collider.enabled = false;
                 m_Collider.enabled = true;
+            }
+        }
+
+        void OnLockedChanged(bool oldValue, bool newValue)
+        {
+            if (newValue)
+            {
+                m_Rigidbody.constraints = RigidbodyConstraints.FreezeAll;
+            }
+            else
+            {
+                m_Rigidbody.constraints = RigidbodyConstraints.None;
             }
         }
 
@@ -212,12 +230,14 @@ namespace XRMultiplayer
             base.OnSelectEnteredLocal(args);
 
             // Return out early if the interactor is ignoring sockets or not syncing select.
-            if (m_IgnoreSocketSelectedCallback && args.interactorObject.transform.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactors.XRSocketInteractor>() != null) return;
+            if (m_IgnoreSocketSelectedCallback && args.interactorObject.transform.GetComponent<XRSocketInteractor>() != null) return;
 
             // Disable the network transform to allow smooth interaction with high latency and wait for ownership or timeout to re-enable.
             if (CanHold() & !IsOwner)
             {
                 m_ClientNetworkTransform.enabled = false;
+                if (m_LockedOnSpawn.Value)
+                    m_Rigidbody.constraints = RigidbodyConstraints.None;
             }
         }
 
@@ -226,7 +246,7 @@ namespace XRMultiplayer
         {
             base.OnSelectExitedLocal(args);
             // Return out early if the interactor is ignoring sockets or not syncing select.
-            if (m_IgnoreSocketSelectedCallback && args.interactorObject.transform.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactors.XRSocketInteractor>() != null) return;
+            if (m_IgnoreSocketSelectedCallback && args.interactorObject.transform.GetComponent<XRSocketInteractor>() != null) return;
 
             // Check if still holding with other hand.
             if (m_BaseInteractable.isSelected) return;
@@ -240,14 +260,12 @@ namespace XRMultiplayer
             if (IsOwner)
             {
                 // Check for interactable type and update kinematic state on release.
-                if (baseInteractable.GetType() == typeof(UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable))
+                if (baseInteractable.GetType() == typeof(XRGrabInteractable))
                 {
-                    /*
                     if (((XRGrabInteractable)baseInteractable).movementType == XRBaseInteractable.MovementType.VelocityTracking || ((UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable)baseInteractable).throwOnDetach)
                     {
                         m_Rigidbody.isKinematic = false;
                     }
-                    */
                 }
             }
         }
@@ -328,22 +346,16 @@ namespace XRMultiplayer
             {
                 m_Rigidbody.linearVelocity = m_AverageVelocity;
             }
-            if (((UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable)baseInteractable).movementType != UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable.MovementType.Kinematic)
+            if (((XRGrabInteractable)baseInteractable).movementType != XRBaseInteractable.MovementType.Kinematic)
             {
                 m_Rigidbody.isKinematic = false;
             }
 
             RelinquishOwnershipAfterTime();
-            RequestOwnershipRpc(NetworkManager.Singleton.LocalClientId);
+            NetworkObject.ChangeOwnership(NetworkManager.Singleton.LocalClientId);
             if (checkOwnershipRoutine != null) StopCoroutine(checkOwnershipRoutine);
             checkOwnershipRoutine = CheckOwnershipRoutine();
             StartCoroutine(checkOwnershipRoutine);
-        }
-
-        [Rpc(SendTo.Server)]
-        void RequestOwnershipRpc(ulong clientId)
-        {
-            NetworkObject.ChangeOwnership(clientId);
         }
 
         /// <summary>

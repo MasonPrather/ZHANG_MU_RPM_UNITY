@@ -9302,6 +9302,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   httpPort: 8080
   discoveryPort: 7777
+  maxUploadMegabytes: 64
+  requirePairingCode: 1
+  allowLegacyRawUploadsWithoutCode: 1
+  pairingCode: 
+  phoneUploadInstructionsText: {fileID: 1342686362}
+  serverStatusText: {fileID: 1342686362}
 --- !u!4 &616358390
 Transform:
   m_ObjectHideFlags: 0
@@ -9344,7 +9350,7 @@ MonoBehaviour:
     serializedVersion: 2
     rgba: 4278190080
   pollFromHttpServer: 1
-  infoText: {fileID: 0}
+  infoText: {fileID: 1342686362}
   maxLoadRetries: 10
   retryDelaySeconds: 0.05
   verboseLogging: 1
@@ -19325,7 +19331,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: -300}
-  m_SizeDelta: {x: 1000, y: 50}
+  m_SizeDelta: {x: 1000, y: 120}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1342686362
 MonoBehaviour:
@@ -19374,8 +19380,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 36
-  m_fontSizeBase: 36
+  m_fontSize: 28
+  m_fontSizeBase: 28
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18

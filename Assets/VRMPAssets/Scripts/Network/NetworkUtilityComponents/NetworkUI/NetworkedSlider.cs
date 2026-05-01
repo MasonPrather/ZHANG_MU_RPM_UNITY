@@ -34,7 +34,7 @@ namespace XRMultiplayer
             m_Slider = GetComponent<Slider>();
             m_Slider.onValueChanged.AddListener(SliderChanged);
             m_StartValue = m_Slider.value;
-            m_NetworkSliderValue = new NetworkVariable<float>(m_StartValue, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+            m_NetworkSliderValue = new NetworkVariable<float>(m_StartValue, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
         }
 
         ///<inheritdoc/>
@@ -56,7 +56,7 @@ namespace XRMultiplayer
         public override void OnNetworkDespawn()
         {
             base.OnNetworkDespawn();
-            if (IsServer && m_ResetValueOnDespawn)
+            if (IsOwner && m_ResetValueOnDespawn)
             {
                 if (m_NetworkSliderValue != null)
                     m_NetworkSliderValue.Value = m_StartValue;
@@ -69,7 +69,7 @@ namespace XRMultiplayer
         /// <param name="newValue">Value of the slider.</param>
         void SliderChanged(float newValue)
         {
-            SliderChangedServerRpc(newValue, NetworkManager.Singleton.LocalClientId);
+            SliderChangedOwnerRpc(newValue, NetworkManager.Singleton.LocalClientId);
         }
 
         /// <summary>
@@ -77,11 +77,11 @@ namespace XRMultiplayer
         /// </summary>
         /// <param name="newValue">Value of the slider.</param>
         /// <param name="clientId">Local user Id.</param>
-        [ServerRpc(RequireOwnership = false)]
-        void SliderChangedServerRpc(float newValue, ulong clientId)
+        [Rpc(SendTo.Owner)]
+        void SliderChangedOwnerRpc(float newValue, ulong clientId)
         {
             m_NetworkSliderValue.Value = newValue;
-            SliderChangedClientRpc(newValue, clientId);
+            SliderChangedRpc(newValue, clientId);
         }
 
         /// <summary>
@@ -89,8 +89,8 @@ namespace XRMultiplayer
         /// </summary>
         /// <param name="newValue">Value of the slider.</param>
         /// <param name="clientId">Local user Id.</param>
-        [ClientRpc]
-        void SliderChangedClientRpc(float newValue, ulong clientId)
+        [Rpc(SendTo.Everyone)]
+        void SliderChangedRpc(float newValue, ulong clientId)
         {
             // Don't update on the local client if they sent the call.
             if (NetworkManager.Singleton.LocalClientId != clientId)

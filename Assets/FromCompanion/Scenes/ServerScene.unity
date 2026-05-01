@@ -154,7 +154,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 319}
-  m_SizeDelta: {x: 1000, y: 50}
+  m_SizeDelta: {x: 1000, y: 120}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &17015095
 MonoBehaviour:
@@ -203,8 +203,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 36
-  m_fontSizeBase: 36
+  m_fontSize: 28
+  m_fontSizeBase: 28
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -894,6 +894,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   httpPort: 8080
   discoveryPort: 7777
+  maxUploadMegabytes: 64
+  requirePairingCode: 1
+  allowLegacyRawUploadsWithoutCode: 1
+  pairingCode: 
+  phoneUploadInstructionsText: {fileID: 935346222}
+  serverStatusText: {fileID: 935346222}
 --- !u!114 &1844259922
 MonoBehaviour:
   m_ObjectHideFlags: 0

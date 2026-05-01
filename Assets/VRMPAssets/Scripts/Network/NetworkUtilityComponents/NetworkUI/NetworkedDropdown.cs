@@ -27,7 +27,7 @@ namespace XRMultiplayer
         private void Awake()
         {
             m_Dropdown = GetComponent<TMP_Dropdown>();
-            m_CurrentDropdownNetworkValue = new NetworkVariable<int>(m_Dropdown.value, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+            m_CurrentDropdownNetworkValue = new NetworkVariable<int>(m_Dropdown.value, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
             m_Dropdown.onValueChanged.AddListener(UpdateDropdown);
         }
 
@@ -53,36 +53,20 @@ namespace XRMultiplayer
         /// <param name="dropdownValue">Value of the dropdown.</param>
         void UpdateDropdown(int dropdownValue)
         {
-            UpdateDropdownServerRpc(dropdownValue, NetworkManager.Singleton.LocalClientId);
+            UpdateDropdownRpc(dropdownValue);
         }
 
         /// <summary>
-        /// Called from the local user to the Server whe the local user has updated the slider.
+        /// Called from the local user to update the slider.
         /// </summary>
         /// <param name="dropdownValue">Value of the dropdown.</param>
-        /// <param name="clientId">Local user Id.</param>
-        [ServerRpc(RequireOwnership = false)]
-        void UpdateDropdownServerRpc(int dropdownValue, ulong clientId)
+        [Rpc(SendTo.NotMe)]
+        void UpdateDropdownRpc(int dropdownValue)
         {
-            UpdateDropdownClientRpc(dropdownValue, clientId);
-        }
-
-        /// <summary>
-        /// Called from the Server on all clients when a local user has updated the dropdown.
-        /// </summary>
-        /// <param name="dropdownValue">Value of the dropdown.</param>
-        /// <param name="clientId">Local user Id.</param>
-        [ClientRpc]
-        void UpdateDropdownClientRpc(int dropdownValue, ulong clientId)
-        {
-            // Don't update on the local client if they sent the call.
-            if (NetworkManager.Singleton.LocalClientId != clientId)
-            {
-                //Remove listener here before updating value to prevent continuous looping
-                m_Dropdown.onValueChanged.RemoveListener(UpdateDropdown);
-                m_Dropdown.value = dropdownValue;
-                m_Dropdown.onValueChanged.AddListener(UpdateDropdown);
-            }
+            //Remove listener here before updating value to prevent continuous looping
+            m_Dropdown.onValueChanged.RemoveListener(UpdateDropdown);
+            m_Dropdown.value = dropdownValue;
+            m_Dropdown.onValueChanged.AddListener(UpdateDropdown);
         }
     }
 }

@@ -29,21 +29,6 @@ namespace XRMultiplayer
             NetworkConfig = m_NetworkConfig;
             Utils.s_LogLevel = LogLevel;
         }
-
-        private void OnServerStarted()
-        {
-            Debug.Log("Server started.");
-        }
-
-        private void OnClientConnected(ulong clientId)
-        {
-            Debug.Log($"Client connected: {clientId}");
-        }
-
-        private void OnClientDisconnected(ulong clientId)
-        {
-            Debug.Log($"Client disconnected: {clientId}");
-        }
     }
 
 #if UNITY_EDITOR

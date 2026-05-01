@@ -178,9 +178,22 @@ public class M_NetAvatar : NetworkBehaviour
         }
 
         // Ownership-based visible layer
-        int layer = LayerMask.NameToLayer(IsOwner ? ownerAvatarLayer : remoteAvatarLayer);
+        string targetLayerName = IsOwner ? ownerAvatarLayer : remoteAvatarLayer;
+        int layer = LayerMask.NameToLayer(targetLayerName);
         if (layer != -1)
+        {
             SetLayerRecursive(_avatarGO, layer);
+        }
+        else
+        {
+            Debug.LogWarning($"[M_NetAvatar] Layer '{targetLayerName}' was not found. Owner={IsOwner}");
+        }
+
+        // Do not render the owner's network avatar locally. The local avatar manager already
+        // owns first-person presentation, and leaving the network avatar visible puts the face
+        // mesh in front of the headset and can visually interfere with UI usage.
+        if (IsOwner)
+            SetRenderersEnabledRecursive(_avatarGO, false);
 
         Debug.Log("[M_NetAvatar] RPM avatar loaded; Animator primed; VRIK wired to IKTargets.");
     }
@@ -254,6 +267,16 @@ public class M_NetAvatar : NetworkBehaviour
         for (int i = 0; i < t.childCount; i++)
         {
             SetLayerRecursive(t.GetChild(i).gameObject, layer);
+        }
+    }
+
+    private static void SetRenderersEnabledRecursive(GameObject root, bool isEnabled)
+    {
+        if (!root) return;
+
+        foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
+        {
+            renderer.enabled = isEnabled;
         }
     }
 }

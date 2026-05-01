@@ -2,30 +2,25 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Unity.Netcode;
-using Unity.Services.Lobbies.Models;
 using Unity.XR.CoreUtils.Bindings.Variables;
 using UnityEngine;
-using Unity.Services.Lobbies;
 using UnityEditor;
+using Unity.Services.Multiplayer;
+using Unity.Netcode.Transports.UTP;
+using System.Net.Sockets;
+using System.Net;
+
+#if UNITY_EDITOR && HAS_MPPM
+
+#endif
 
 namespace XRMultiplayer
 {
-#if USE_FORCED_BYTE_SERIALIZATION
-    /// <summary>
-    /// Workaround for a bug introduced in NGO 1.9.1.
-    /// </summary>
-    /// <remarks> Delete this class once the bug is fixed in NGO.</remarks>
-    class ForceByteSerialization : NetworkBehaviour
-    {
-        NetworkVariable<byte> m_ForceByteSerialization;
-    }
-#endif
-
     /// <summary>
     /// Manages the high level connection for a networked game session.
     /// </summary>
-    [RequireComponent(typeof(LobbyManager)), RequireComponent(typeof(AuthenticationManager))]
-    public class XRINetworkGameManager : NetworkBehaviour
+    [RequireComponent(typeof(SessionManager)), RequireComponent(typeof(AuthenticationManager))]
+    public class XRINetworkGameManager : MonoBehaviour
     {
         /// <summary>
         /// Determines the current state of the networked game connection.
@@ -112,6 +107,40 @@ namespace XRMultiplayer
         static BindableEnum<ConnectionState> m_ConnectionState = new BindableEnum<ConnectionState>(ConnectionState.None);
 
         /// <summary>
+        /// Returns the current session type.
+        /// </summary>
+        /// <remarks>
+        /// NOTE: This is only available after Instance is set (Awake).
+        /// This will check <see cref="NetworkReachability.NotReachable"/>'s state and override the session type to <see cref="SessionType.LocalOnly"/>  if no internet connection is available.
+        /// </remarks>
+        /// <returns>
+        /// The current session type, either <see cref="SessionType.DistributedAuthority"/> or <see cref="SessionType.LocalOnly"/>.
+        /// </returns>
+        public static SessionType CurrentSessionType
+        {
+            get
+            {
+                SessionType defaultSessionType;
+                try
+                {
+                    defaultSessionType = Instance.sessionManager.sessionType;
+
+                    // If the session type is Distributed Authority and there is no internet connection, fallback to LocalOnly.
+                    if (defaultSessionType == SessionType.DistributedAuthority && Application.internetReachability == NetworkReachability.NotReachable)
+                        defaultSessionType = SessionType.LocalOnly;
+                }
+                catch (Exception ex)
+                {
+                    // If Instance is not set, log the error and return the default session type as local.
+                    Utils.Log($"{k_DebugPrepend}Error getting CurrentSessionType: {ex.Message}", 1);
+                    defaultSessionType = SessionType.LocalOnly;
+                }
+
+                return defaultSessionType;
+            }
+        }
+
+        /// <summary>
         /// Auto connects to the player to a networked game session once they connect to a lobby.
         /// Uncheck if you want to handle joining a networked session separately.
         /// </summary>
@@ -129,23 +158,25 @@ namespace XRMultiplayer
         /// <summary>
         /// Action for when a player connects or disconnects.
         /// </summary>
-        public Action<ulong, bool> playerStateChanged;
+        public Action<ulong, bool> OnPlayerStateChanged;
 
         /// <summary>
         /// Action for when connection status is updated.
         /// </summary>
-        public Action<string> connectionUpdated;
+        public Action<string> OnConnectionUpdated;
 
         /// <summary>
         /// Action for when connection fails.
         /// </summary>
-        public Action<string> connectionFailedAction;
+        public Action<string> OnConnectionFailedAction;
+
+        public Action<ulong> OnSessionOwnerPromoted;
 
         /// <summary>
         /// Lobby Manager handles the Lobby and Relay work between players.
         /// </summary>
-        public LobbyManager lobbyManager => m_LobbyManager;
-        LobbyManager m_LobbyManager;
+        public SessionManager sessionManager => m_SessionManager;
+        SessionManager m_SessionManager;
 
         /// <summary>
         /// Lobby Manager handles the Lobby and Relay work between players.
@@ -156,7 +187,7 @@ namespace XRMultiplayer
         /// <summary>
         /// List that handles all current players by ID.
         /// Useful for getting specific players.
-        /// See <see cref="GetPlayerByID"/>
+        /// See <see cref="TryGetPlayerByID"/>
         /// </summary>
         readonly List<ulong> m_CurrentPlayerIDs = new();
 
@@ -182,9 +213,9 @@ namespace XRMultiplayer
             s_Instance = this;
 
             // Check for Lobby Manager, if none exist, early out.
-            if (TryGetComponent(out m_LobbyManager) && TryGetComponent(out m_AuthenticationManager))
+            if (TryGetComponent(out m_SessionManager) && TryGetComponent(out m_AuthenticationManager))
             {
-                m_LobbyManager.OnLobbyFailed += ConnectionFailed;
+                m_SessionManager.OnSessionFailed += ConnectionFailed;
             }
             else
             {
@@ -194,12 +225,20 @@ namespace XRMultiplayer
             }
 
 #if UNITY_EDITOR
-            if(!CloudProjectSettings.projectBound)
+
+            bool skipCloudCheck = false;
+# if HAS_MPPM
+            if (!Unity.Multiplayer.PlayMode.CurrentPlayer.IsMainEditor)
+            {
+                skipCloudCheck = true;
+            }
+# endif
+            // Check if the project is linked to Unity Cloud and that it's not a MPPM Clone.
+            if (!CloudProjectSettings.projectBound && !skipCloudCheck)
             {
                 Utils.Log($"{k_DebugPrepend}Project has not been linked to Unity Cloud." +
                                "\nThe VR Multiplayer Template utilizes Unity Gaming Services and must be linked to Unity Cloud." +
                                "\nGo to <b>Settings -> Project Settings -> Services</b> and link your project.", 2);
-                return;
             }
 #endif
 
@@ -208,20 +247,20 @@ namespace XRMultiplayer
             // Update connection state.
             m_ConnectionState.Value = ConnectionState.Authenticating;
 
-            // Wait for Authentication to complete.
-            bool signedIn = await Authenticate();
-            if (!signedIn)
+            // If using Distributed Authority, wait for Authentication to complete.
+            if (CurrentSessionType == SessionType.DistributedAuthority)
             {
-                Utils.Log($"{k_DebugPrepend}Failed to Authenticate.", 1);
-                ConnectionFailed("Failed to Authenticate.");
-                //PlayerHudNotification.Instance.ShowText($"Failed to Authenticate.");
-                Debug.Log($"Failed to Authenticate.");
+                bool signedIn = await m_AuthenticationManager.Authenticate();
+                if (!signedIn)
+                {
+                    Utils.Log($"{k_DebugPrepend}Failed to Authenticate.", 1);
+                    ConnectionFailed("Failed to Authenticate.");
+                    PlayerHudNotification.Instance.ShowText($"Failed to Authenticate.");
+                    return;
+                }
             }
-            else
-            {
-                // Update connection state.
-                m_ConnectionState.Value = ConnectionState.Authenticated;
-            }
+
+            m_ConnectionState.Value = ConnectionState.Authenticated;
         }
 
         /// <summary>
@@ -229,16 +268,24 @@ namespace XRMultiplayer
         /// </summary>
         protected virtual void Start()
         {
-            NetworkManager.Singleton.OnClientStopped += OnLocalClientStopped;
+            NetworkManager.Singleton.OnClientStopped += LocalClientStopped;
+            NetworkManager.Singleton.OnSessionOwnerPromoted += SessionOwnerPromoted;
+        }
+
+        void SessionOwnerPromoted(ulong sessionOwnerId)
+        {
+            OnSessionOwnerPromoted?.Invoke(sessionOwnerId);
+            if (TryGetPlayerByID(sessionOwnerId, out XRINetworkPlayer player))
+            {
+                PlayerHudNotification.Instance.ShowText($"<b>Status:</b> {player.playerName} now the Host.");
+            }
         }
 
         /// <summary>
         /// See <see cref="MonoBehaviour"/>.
         /// </summary>
-        public override void OnDestroy()
+        public void OnDestroy()
         {
-            base.OnDestroy();
-
             ShutDown();
         }
 
@@ -258,31 +305,26 @@ namespace XRMultiplayer
             // Remove callbacks
             if (NetworkManager.Singleton != null)
             {
-                NetworkManager.Singleton.OnClientStopped -= OnLocalClientStopped;
+                NetworkManager.Singleton.OnClientStopped -= LocalClientStopped;
             }
 
-            // Shutdown lobby if owner, remove from lobby if not owner.
-            await m_LobbyManager.RemovePlayerFromLobby(AuthenicationId);
+            await m_SessionManager.LeaveSession();
         }
 
-        public async Task<bool> Authenticate()
-        {
-            return await m_AuthenticationManager.Authenticate();
-        }
         public bool IsAuthenticated()
         {
-            return AuthenticationManager.IsAuthenticated();
+            return m_SessionManager.sessionType != SessionType.DistributedAuthority || AuthenticationManager.IsAuthenticated();
         }
         /// <summary>
         /// Called from XRINetworkPlayer once they have spawned.
         /// </summary>
         /// <param name="localPlayerId">Sets based on <see cref="NetworkObject.OwnerClientId"/> from the local player</param>
-        public virtual void LocalPlayerConnected(ulong localPlayerId)
+        public virtual void OnLocalClientStarted(ulong localPlayerId)
         {
-            m_Connected.Value = true;
             LocalId = localPlayerId;
-            //PlayerHudNotification.Instance.ShowText($"<b>Status:</b> Connected");
-            Debug.Log($"<b>Status:</b> Connected");
+            m_ConnectionState.Value = ConnectionState.Connected;
+            PlayerHudNotification.Instance.ShowText($"<b>Status:</b> Connected");
+            Utils.Log($"{k_DebugPrepend}Local Player Started with ID: {localPlayerId}", 0);
         }
 
         /// <summary>
@@ -291,12 +333,11 @@ namespace XRMultiplayer
         /// <param name="id">
         /// Local player id.
         /// </param>
-        protected virtual void OnLocalClientStopped(bool id)
+        protected virtual void LocalClientStopped(bool id)
         {
             m_Connected.Value = false;
             m_CurrentPlayerIDs.Clear();
-            //PlayerHudNotification.Instance.ShowText($"<b>Status:</b> Disconnected");
-            Debug.Log("<b>Status:</b> Disconnected");
+            PlayerHudNotification.Instance.ShowText($"<b>Status:</b> Disconnected");
             // Check if authenticated on disconnect.
             if (IsAuthenticated())
             {
@@ -321,9 +362,7 @@ namespace XRMultiplayer
         /// <returns>
         /// Returns true based on whether or not a player with that Id exists.
         /// </returns>
-        ///
-        /*
-        public virtual bool GetPlayerByID(ulong id, out XRINetworkPlayer player)
+        public virtual bool TryGetPlayerByID(ulong id, out XRINetworkPlayer player)
         {
             // Find all existing players in scene. This is a workaround until NGO exposes client side player list (2.x I believe - JG).
             XRINetworkPlayer[] allPlayers = FindObjectsByType<XRINetworkPlayer>(FindObjectsSortMode.None);
@@ -339,7 +378,7 @@ namespace XRMultiplayer
             }
             player = null;
             return false;
-        }*/
+        }
 
         [ContextMenu("Show All NetworkClients")]
         void ShowAllNetworkClients()
@@ -352,7 +391,7 @@ namespace XRMultiplayer
 
         /// <summary>
         /// This function will set the player ID in the list <see cref="m_CurrentPlayerIDs"/> and
-        /// invokes the callback <see cref="playerStateChanged"/>.
+        /// invokes the callback <see cref="OnPlayerStateChanged"/>.
         /// </summary>
         /// <param name="playerID"><see cref="NetworkObject.OwnerClientId"/> of the joined player.</param>
         /// <remarks>Called from <see cref="XRINetworkPlayer.CompleteSetup"/>.</remarks>
@@ -362,7 +401,7 @@ namespace XRMultiplayer
             if (!m_CurrentPlayerIDs.Contains(playerID))
             {
                 m_CurrentPlayerIDs.Add(playerID);
-                playerStateChanged?.Invoke(playerID, true);
+                OnPlayerStateChanged?.Invoke(playerID, true);
             }
             else
             {
@@ -380,7 +419,7 @@ namespace XRMultiplayer
             if (m_CurrentPlayerIDs.Contains(playerID))
             {
                 m_CurrentPlayerIDs.Remove(playerID);
-                playerStateChanged?.Invoke(playerID, false);
+                OnPlayerStateChanged?.Invoke(playerID, false);
             }
             else
             {
@@ -394,8 +433,8 @@ namespace XRMultiplayer
         /// <param name="reason">Failure message.</param>
         public virtual void ConnectionFailed(string reason)
         {
-            connectionFailedAction?.Invoke(reason);
-            m_ConnectionState.Value = AuthenticationManager.IsAuthenticated() ? ConnectionState.Authenticated : ConnectionState.None;
+            OnConnectionFailedAction?.Invoke(reason);
+            m_ConnectionState.Value = IsAuthenticated() ? ConnectionState.Authenticated : ConnectionState.None;
         }
 
         /// <summary>
@@ -404,7 +443,7 @@ namespace XRMultiplayer
         /// <param name="update">Status update message.</param>
         public virtual void ConnectionUpdated(string update)
         {
-            connectionUpdated?.Invoke(update);
+            OnConnectionUpdated?.Invoke(update);
         }
 
         /// <summary>
@@ -415,7 +454,7 @@ namespace XRMultiplayer
             Utils.Log($"{k_DebugPrepend}Joining Lobby by Quick Join.");
             if (await AbleToConnect())
             {
-                ConnectToLobby(await m_LobbyManager.QuickJoinLobby());
+                ConnectToSession(await m_SessionManager.QuickJoinLobby());
             }
         }
 
@@ -428,20 +467,20 @@ namespace XRMultiplayer
             Utils.Log($"{k_DebugPrepend}Joining Lobby by room code: {code}.");
             if (await AbleToConnect())
             {
-                ConnectToLobby(await m_LobbyManager.JoinLobby(roomCode: code));
+                ConnectToSession(await m_SessionManager.JoinLobby(roomCode: code));
             }
         }
 
         /// <summary>
         /// Called when trying to join a specific Lobby.
         /// </summary>
-        /// <param name="lobby">Lobby to join.</param>
-        public virtual async void JoinLobbySpecific(Lobby lobby)
+        /// <param name="session">Lobby to join.</param>
+        public virtual async void JoinLobbySpecific(ISessionInfo session)
         {
-            Utils.Log($"{k_DebugPrepend}Joining specific Lobby: {lobby.Name}.");
+            Utils.Log($"{k_DebugPrepend}Joining specific Lobby: {session.Name}.");
             if (await AbleToConnect())
             {
-                ConnectToLobby(await m_LobbyManager.JoinLobby(lobby: lobby));
+                ConnectToSession(await m_SessionManager.JoinLobby(sessionInfo: session));
             }
         }
 
@@ -456,10 +495,9 @@ namespace XRMultiplayer
             Utils.Log($"{k_DebugPrepend}Creating New Lobby: {roomName}.");
             if (await AbleToConnect())
             {
-                ConnectToLobby(await m_LobbyManager.CreateLobby(roomName, isPrivate, playerCount));
+                ConnectToSession(await m_SessionManager.CreateSession(roomName, isPrivate, playerCount));
             }
         }
-
 
         /// <summary>
         /// Checks if a we are currently able to connect to a lobby.
@@ -495,127 +533,21 @@ namespace XRMultiplayer
         /// <summary>
         /// Connect to a lobby.
         /// </summary>
-        /// <param name="lobby">Lobby to connect to.</param>
-        protected virtual void ConnectToLobby(Lobby lobby)
+        /// <param name="session">Lobby to connect to.</param>
+        protected virtual void ConnectToSession(ISession session)
         {
             // Send failure message if we can't connect.
-            if (lobby == null || !ConnectedToLobby())
+            if (session == null)
             {
                 FailedToConnect();
             }
-            m_Connected.Value = true;
-            Utils.Log("[XRINetworkGameManager] m_Connected.Value set to TRUE after joining lobby.");
-
-        }
-
-        /// <summary>
-        /// Checks if we successfully connected to a Lobby.
-        /// If <see cref="autoConnectOnLobbyJoin"/> is enabled, join networked game here.
-        /// </summary>
-        /// <returns>Whether or not we connected to a lobby and / or networked game.</returns>
-        protected virtual bool ConnectedToLobby()
-        {
-            bool connected;
-            if (autoConnectOnLobbyJoin)
-            {
-                ConnectedRoomRegion = m_LobbyManager.connectedLobby.Data[LobbyManager.k_RegionKeyIdentifier].Value;
-                ConnectedRoomCode = m_LobbyManager.connectedLobby.LobbyCode;
-                ConnectedRoomName.Value = m_LobbyManager.connectedLobby.Name;
-
-                if (m_LobbyManager.connectedLobby.HostId == AuthenicationId)
-                {
-                    connected = NetworkManager.Singleton.StartHost();
-                    Utils.Log("[XRINetworkGameManager] Host started.");
-                }
-                else
-                {
-                    connected = NetworkManager.Singleton.StartClient();
-                    Utils.Log("[XRINetworkGameManager] Client started.");
-                }
-            }
             else
             {
-                connected = true;
-            }
-
-            if (connected)
-            {
-                Utils.Log($"[XRINetworkGameManager] Connected to game session. Lobby: {m_LobbyManager.connectedLobby.Name}.");
-                m_ConnectionState.Value = ConnectionState.Connected;
-                SubscribeToLobbyEvents();
-            }
-            else
-            {
-                Utils.Log($"[XRINetworkGameManager] Failed to start network session.");
-                m_LobbyManager.OnLobbyFailed?.Invoke($"Failed to start network session.");
-            }
-
-            return connected;
-        }
-
-        /// <summary>
-        /// Subscribe to lobby update events. This needed to be informed of Lobby changes (name, privacy, etc...).
-        /// </summary>
-        /// <remarks>See <see cref="OnLobbyChanged(ILobbyChanges)"/>.</remarks>
-        protected virtual async void SubscribeToLobbyEvents()
-        {
-            var callbacks = new LobbyEventCallbacks();
-            callbacks.LobbyChanged += OnLobbyChanged;
-            callbacks.LobbyEventConnectionStateChanged += OnLobbyEventConnectionStateChanged;
-            try
-            {
-                await LobbyService.Instance.SubscribeToLobbyEventsAsync(m_LobbyManager.connectedLobby.Id, callbacks);
-            }
-            catch (LobbyServiceException ex)
-            {
-                switch (ex.Reason)
-                {
-                    case LobbyExceptionReason.AlreadySubscribedToLobby: Utils.Log($"{k_DebugPrepend}Already subscribed to lobby[{m_LobbyManager.connectedLobby.Id}]. We did not need to try and subscribe again. Exception Message: {ex.Message}", 1); break;
-                    case LobbyExceptionReason.SubscriptionToLobbyLostWhileBusy: Utils.Log($"{k_DebugPrepend}Subscription to lobby events was lost while it was busy trying to subscribe. Exception Message: {ex.Message}", 2); throw;
-                    case LobbyExceptionReason.LobbyEventServiceConnectionError: Utils.Log($"{k_DebugPrepend}Failed to connect to lobby events. Exception Message: {ex.Message}", 2); throw;
-                    default: throw;
-                }
+                ConnectedRoomCode = session.Code;
+                ConnectedRoomName.Value = session.Name;
+                m_Connected.Value = true;
             }
         }
-
-        /// <summary>
-        /// Callabacks for anytime the lobby event connection state has changed.
-        /// </summary>
-        /// <param name="state"></param>
-        private void OnLobbyEventConnectionStateChanged(LobbyEventConnectionState state)
-        {
-            switch (state)
-            {
-                case LobbyEventConnectionState.Unsubscribed: Utils.Log($"{k_DebugPrepend}Lobby event now Unsubscribed"); break;
-                case LobbyEventConnectionState.Subscribing: Utils.Log($"{k_DebugPrepend}Attempting to subscribe to lobby events"); break;
-                case LobbyEventConnectionState.Subscribed: Utils.Log($"{k_DebugPrepend}Subscribing to lobby events now"); break;
-                case LobbyEventConnectionState.Unsynced:
-                    m_LobbyManager.ReconnectToLobby();
-                    Utils.Log($"{k_DebugPrepend}Lobby Events now unsynced.\n\n{state}", 1);
-                    break;
-                case LobbyEventConnectionState.Error: Utils.Log($"{k_DebugPrepend}Lobby event error.\n\n{state}", 2); break;
-            }
-        }
-
-        /// <summary>
-        /// Callback for anytime a lobby is updated via <see cref="LobbyService.Instance.SubscribeToLobbyEventsAsync"/>.
-        /// </summary>
-        /// <param name="changes"></param>
-        protected virtual void OnLobbyChanged(ILobbyChanges changes)
-        {
-            // Check for lobby deletion.
-            if (!changes.LobbyDeleted)
-            {
-                changes.ApplyToLobby(m_LobbyManager.connectedLobby);
-
-                // Update values based on lobby changes.
-                if (changes.Name.Changed)
-                {
-                    ConnectedRoomName.Value = m_LobbyManager.connectedLobby.Name;
-                }
-            }
-        }
-
 
         /// <summary>
         /// Generic failure message.
@@ -640,7 +572,8 @@ namespace XRMultiplayer
             {
                 m_ConnectionState.Value = ConnectionState.Authenticated;
             }
-            await m_LobbyManager.RemovePlayerFromLobby(AuthenicationId);
+
+            await m_SessionManager.LeaveSession();
         }
 
         /// <summary>
@@ -648,18 +581,20 @@ namespace XRMultiplayer
         /// </summary>
         public virtual async void Disconnect()
         {
-            await DisconnectAsync();
+            if (CurrentSessionType == SessionType.DistributedAuthority)
+                await DisconnectAsync();
+            else
+                LeaveLocalConnection();
         }
 
         /// <summary>
         /// Awaitable Disconnect call, used for Hot Joining.
         /// </summary>
         /// <returns></returns>
-        public virtual async Task<bool> DisconnectAsync()
+        public virtual async Task DisconnectAsync()
         {
-            bool fullyDisconnected = await m_LobbyManager.RemovePlayerFromLobby(AuthenicationId);
+            await m_SessionManager.LeaveSession();
             m_Connected.Value = false;
-            NetworkManager.Shutdown();
             if (IsAuthenticated())
             {
                 m_ConnectionState.Value = ConnectionState.Authenticated;
@@ -669,7 +604,70 @@ namespace XRMultiplayer
                 m_ConnectionState.Value = ConnectionState.None;
             }
             Utils.Log($"{k_DebugPrepend}Disconnected from Game.");
-            return fullyDisconnected;
+        }
+
+        /// <summary>
+        /// Hosts a local connection.
+        /// This will use the local IP address of the device to connect.
+        /// </summary>
+        public virtual bool HostLocalConnection()
+        {
+            string localIP = GetLocalIPAddress();
+
+            var transport = NetworkManager.Singleton.NetworkConfig.NetworkTransport as UnityTransport;
+
+            transport.ConnectionData.Address = localIP;
+            ConnectedRoomName.Value = "Local Room";
+            ConnectedRoomCode = localIP;
+            return NetworkManager.Singleton.StartHost();
+        }
+
+        /// <summary>
+        /// Joins a local connection as a client.
+        /// This will use the the IP address the user manually sets in the UnityTransport.
+        /// </summary>
+        public virtual bool JoinLocalConnection()
+        {
+            var transport = NetworkManager.Singleton.NetworkConfig.NetworkTransport as UnityTransport;
+            ConnectedRoomName.Value = "Local Room";
+            ConnectedRoomCode = transport.ConnectionData.Address;
+            return NetworkManager.Singleton.StartClient();
+        }
+
+        /// <summary>
+        /// Leaves the local connection, either as a host or client.
+        /// </summary>
+        public virtual void LeaveLocalConnection()
+        {
+            NetworkManager.Singleton.Shutdown();
+        }
+
+
+        /// <summary>
+        /// Gets the local IP address.
+        /// </summary>
+        /// <returns>Returns string of local IP address.</returns>
+        /// <remarks>This may not work in all environments, especially if the device has multiple network interfaces.</remarks>
+        public virtual string GetLocalIPAddress()
+        {
+            string localIP = "127.0.0.1";
+            try
+            {
+                string host = "8.8.8.8"; // Google's public DNS server, used to determine the local IP address.
+                int port = 65530; // Arbitrary port number, not used for actual communication.
+
+                using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
+                {
+                    socket.Connect(host, port);
+                    IPEndPoint endPoint = socket.LocalEndPoint as IPEndPoint;
+                    localIP = endPoint.Address.ToString();
+                }
+            }
+            catch (Exception e)
+            {
+                Utils.Log($"{k_DebugPrepend}Failed to get local IP: {e.Message}", 1);
+            }
+            return localIP;
         }
     }
 }

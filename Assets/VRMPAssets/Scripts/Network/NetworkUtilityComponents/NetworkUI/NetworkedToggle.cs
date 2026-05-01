@@ -28,7 +28,7 @@ namespace XRMultiplayer
         private void Awake()
         {
             m_Toggle = GetComponent<Toggle>();
-            m_NetworkToggleValue = new NetworkVariable<bool>(m_Toggle.isOn, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+            m_NetworkToggleValue = new NetworkVariable<bool>(m_Toggle.isOn, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
             m_Toggle.onValueChanged.AddListener(UpdateToggleValue);
         }
 
@@ -55,35 +55,19 @@ namespace XRMultiplayer
         /// <param name="value">Value of the toggle.</param>
         void UpdateToggleValue(bool value)
         {
-            UpdateToggleServerRpc(value, NetworkManager.Singleton.LocalClientId);
+            UpdateToggleRpc(value);
         }
 
         /// <summary>
         /// Called from the local user to the Server when the local user has updated the toggle.
         /// </summary>
         /// <param name="value">Value of the toggle.</param>
-        /// <param name="clientId">Local user Id.</param>
-        [ServerRpc(RequireOwnership = false)]
-        void UpdateToggleServerRpc(bool value, ulong clientId)
+        [Rpc(SendTo.NotMe)]
+        void UpdateToggleRpc(bool value)
         {
-            UpdateToggleClientRpc(value, clientId);
-        }
-
-        /// <summary>
-        /// Called from the Server on all clients when a local user has updated the toggle.
-        /// </summary>
-        /// <param name="value">Value of the toggle.</param>
-        /// <param name="clientId">Local user Id.</param>
-        [ClientRpc]
-        void UpdateToggleClientRpc(bool value, ulong clientId)
-        {
-            // Don't update on the local client if they sent the call.
-            if (NetworkManager.Singleton.LocalClientId != clientId)
-            {
-                m_Toggle.onValueChanged.RemoveListener(UpdateToggleValue);
-                m_Toggle.isOn = value;
-                m_Toggle.onValueChanged.AddListener(UpdateToggleValue);
-            }
+            m_Toggle.onValueChanged.RemoveListener(UpdateToggleValue);
+            m_Toggle.isOn = value;
+            m_Toggle.onValueChanged.AddListener(UpdateToggleValue);
         }
     }
 }
