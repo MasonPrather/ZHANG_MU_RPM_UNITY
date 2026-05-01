@@ -7221,6 +7221,7 @@ GameObject:
   - component: {fileID: 920100000000000002}
   - component: {fileID: 920100000000000003}
   - component: {fileID: 920100000000000004}
+  - component: {fileID: 920100000000000005}
   m_Layer: 0
   m_Name: PhoneUploadServer
   m_TagString: Untagged
@@ -7288,6 +7289,41 @@ MonoBehaviour:
   maxLoadRetries: 5
   retryDelaySeconds: 0.05
   keepTextureReadable: 0
+  verboseLogging: 1
+--- !u!114 &920100000000000005
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 920100000000000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dc231f652c484c9cb1ac07b848070827, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  activateOnStart: 1
+  closePromptAfterFirstUpload: 1
+  closeDelayAfterUploadSeconds: 2
+  keepPassthroughAfterUpload: 0
+  serverBootstrap: {fileID: 920100000000000003}
+  phoneUploadBridge: {fileID: 920100000000000004}
+  xrCamera: {fileID: 0}
+  ovrManager: {fileID: 0}
+  passthroughLayer: {fileID: 0}
+  promptRoot: {fileID: 0}
+  titleText: {fileID: 0}
+  instructionsText: {fileID: 0}
+  statusText: {fileID: 0}
+  createPromptIfMissing: 1
+  maxDisplayedUrls: 2
+  promptDistanceMeters: 1.35
+  promptOffsetMeters: {x: 0, y: 0.14, z: 0}
+  recenterPromptOnEnter: 1
+  billboardPromptToHeadset: 1
+  enablePassthrough: 1
+  hideSceneRenderersDuringPhoneMode: 1
+  rendererRootsToKeepVisible: []
   verboseLogging: 1
 --- !u!1001 &1188042902095879605
 PrefabInstance:

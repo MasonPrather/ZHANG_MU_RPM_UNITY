@@ -14,6 +14,22 @@ using UnityEngine;
 /// </summary>
 public class M_ServerBootstrap : MonoBehaviour
 {
+    public event Action<M_ServerBootstrap> InstructionsPublished;
+
+    public string EffectivePairingCode => _effectivePairingCode;
+    public string PublishedInstructions => _publishedInstructions;
+    public string PrimaryUploadUrl { get; private set; }
+
+    public string[] PublishedUploadUrls
+    {
+        get
+        {
+            string[] copy = new string[_publishedUploadUrls.Length];
+            Array.Copy(_publishedUploadUrls, copy, _publishedUploadUrls.Length);
+            return copy;
+        }
+    }
+
     [Header("Ports")]
     public int httpPort = 8080;
     public int discoveryPort = 7777;
@@ -50,6 +66,7 @@ public class M_ServerBootstrap : MonoBehaviour
     private M_SimpleHttpServer _httpServer;
     private string _effectivePairingCode;
     private string _publishedInstructions;
+    private string[] _publishedUploadUrls = new string[0];
 
     private sealed class NetworkAddressInfo
     {
@@ -111,6 +128,9 @@ public class M_ServerBootstrap : MonoBehaviour
     private void PublishPhoneUploadInstructions()
     {
         List<NetworkAddressInfo> addresses = GetLocalIPv4Addresses();
+        _publishedUploadUrls = BuildUploadUrls(addresses);
+        PrimaryUploadUrl = _publishedUploadUrls.Length > 0 ? _publishedUploadUrls[0] : $"http://<quest-ip>:{httpPort}";
+
         string instructions = BuildPhoneUploadInstructions(addresses);
 
         _publishedInstructions = instructions;
@@ -137,6 +157,8 @@ public class M_ServerBootstrap : MonoBehaviour
 
         if (!string.IsNullOrEmpty(_effectivePairingCode))
             Debug.Log($"[M_ServerBootstrap] Phone upload code: {_effectivePairingCode}");
+
+        InstructionsPublished?.Invoke(this);
     }
 
     private void RestoreInstructionsText(TMP_Text text)
@@ -150,17 +172,17 @@ public class M_ServerBootstrap : MonoBehaviour
         StringBuilder sb = new StringBuilder();
         sb.AppendLine("Open on phone:");
 
-        if (addresses.Count == 0)
+        if (_publishedUploadUrls.Length == 0)
         {
             sb.AppendLine($"http://<quest-ip>:{httpPort}");
         }
         else
         {
             int count = Mathf.Max(1, maxDisplayedUrls);
-            count = Math.Min(count, addresses.Count);
+            count = Math.Min(count, _publishedUploadUrls.Length);
 
             for (int i = 0; i < count; i++)
-                sb.AppendLine($"http://{addresses[i].address}:{httpPort}");
+                sb.AppendLine(_publishedUploadUrls[i]);
         }
 
         if (!string.IsNullOrEmpty(_effectivePairingCode))
@@ -168,6 +190,18 @@ public class M_ServerBootstrap : MonoBehaviour
 
         sb.Append("Same Wi-Fi. If one URL fails, try the next.");
         return sb.ToString();
+    }
+
+    private string[] BuildUploadUrls(List<NetworkAddressInfo> addresses)
+    {
+        if (addresses == null || addresses.Count == 0)
+            return new string[0];
+
+        string[] urls = new string[addresses.Count];
+        for (int i = 0; i < addresses.Count; i++)
+            urls[i] = $"http://{addresses[i].address}:{httpPort}";
+
+        return urls;
     }
 
     private void ResolveInstructionTextReferences()
