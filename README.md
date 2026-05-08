@@ -1,8 +1,3 @@
-This repository is for a project under the direction of Dr. Lei Zhang, Professor at Kennesaw State University.
+MultiUserFullBody is a Unity-based research prototype for multi-user, full-body immersive interaction. The project is developed as part of Mason Prather's Graduate Research Assistant work at Kennesaw State University under the supervision of Dr. Lei Zhang.
 
-The project is titled "ZHANG_MU_RPM_UNITY" to briefly represent the project details. 
-
-Dr. Zhang's name is presented first, as this is his project - I am a GRA, serving as primary developer.
-"MU" is an abbreviation for "Multi-User", since this project will have a multi-user system based on Unity Relay, Unity Transport, and Unity NGO.
-"RPM" is an abbreviation for "Ready Player Me". Ready Player Me is the Avatar system in use and a prominent feature of the project.
-Lastly, "UNITY". Namely, the project is being developed in Unity engine (v. 2022.3.57f1).
+This repository contains the Unity project source, scenes, scripts, and supporting assets used to explore networked embodiment, avatar synchronization, and shared VR interaction workflows. The codebase is maintained as a research and development project, with dependencies and implementation details evolving as deprecated packages are removed and the architecture is refined.
